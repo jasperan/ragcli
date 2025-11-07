@@ -59,7 +59,7 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 
 2. **Initialize Database** (run once):
    ```bash
-   ragcli init-db  # Creates tables/indexes in Oracle (implement in future)
+   ragcli init-db  # Creates tables and indexes in Oracle if they don't exist
    ```
 
 3. **Launch CLI (REPL)**:
