@@ -1,0 +1,70 @@
+# Oracle Database 26ai Configuration
+oracle:
+  username: "rag_user"
+  password: "${ORACLE_PASSWORD}"  # Can use env vars
+  dsn: "oracle_host:1521/orcl"
+  use_tls: true
+  tls_wallet_path: null           # Optional, null for TLS connection
+  pool_size: 10                   # Connection pooling
+
+# Ollama Configuration
+ollama:
+  endpoint: "http://localhost:11434"  # API endpoint URL
+  embedding_model: "nomic-embed-text" # Embedding model name
+  chat_model: "llama2"                # Chat model name
+  timeout: 30                         # API timeout in seconds
+
+# DeepSeek-OCR Configuration (via vLLM)
+ocr:
+  vllm_endpoint: "http://localhost:8000"  # vLLM API endpoint
+  enabled: true
+  model: "deepseek-ai/DeepSeek-OCR"
+  temperature: 0.0
+  max_tokens: 8192
+
+# Document Processing
+documents:
+  chunk_size: 1000                # Default: 1000 tokens per chunk
+  chunk_overlap_percentage: 10    # Default: 10% overlap
+  supported_formats:             # TXT, MD, PDF
+    - txt
+    - md
+    - pdf
+  max_file_size_mb: 100
+  temp_dir: "./temp"
+
+# Vector Index Configuration
+vector_index:
+  auto_select: true              # Auto-select based on data size
+  index_type: "HNSW"             # Options: HNSW, IVF_FLAT, HYBRID
+  dimension: 768                 # Embedding dimension
+  m: 16                          # HNSW parameter: connections per node
+  ef_construction: 200            # HNSW parameter: construction effort
+
+# RAG Query Configuration
+rag:
+  top_k: 5                       # Number of documents to retrieve
+  min_similarity_score: 0.5      # Minimum similarity threshold
+  use_reranking: false           # Future: LLM-based reranking
+
+# Logging Configuration
+logging:
+  level: "INFO"                  # DEBUG, INFO, WARNING, ERROR
+  log_file: "./logs/ragcli.log"
+  max_log_size_mb: 50
+  backup_count: 5
+  detailed_metrics: true         # Log detailed metrics
+
+# UI Configuration
+ui:
+  theme: "dark"                  # dark or light
+  host: "0.0.0.0"
+  port: 7860                     # Gradio default
+  share: false                   # Public sharing
+  auto_reload: true
+
+# Application Settings
+app:
+  app_name: "ragcli"
+  version: "1.0.0"
+  debug: false
