@@ -7,6 +7,10 @@ from pdfplumber import open as pdf_open
 from PIL import Image
 from io import BytesIO
 from ..config.config_manager import load_config
+from ..utils.helpers import retry_with_backoff
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def pdf_to_markdown(pdf_path: str, config: dict) -> Optional[str]:
     """Extract text from PDF using OCR via vLLM."""
@@ -39,30 +43,36 @@ def pdf_to_markdown(pdf_path: str, config: dict) -> Optional[str]:
             pil_img.save(buffer, format='PNG')
             img_base64 = base64.b64encode(buffer.getvalue()).decode()
             
-            # vLLM request
-            payload = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "Extract all text from this image and format as markdown, preserving tables and structure."},
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_base64}"}},
-                        ]
-                    }
-                ],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            }
-            
-            response = requests.post(
-                f"{vllm_endpoint}/v1/chat/completions",
-                json=payload,
-                timeout=60
-            )
-            response.raise_for_status()
-            
-            content = response.json()['choices'][0]['message']['content']
+            # vLLM request with retry
+            def _ocr_api_call():
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Extract all text from this image and format as markdown, preserving tables and structure."},
+                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_base64}"}},
+                            ]
+                        }
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+
+                response = requests.post(
+                    f"{vllm_endpoint}/v1/chat/completions",
+                    json=payload,
+                    timeout=60
+                )
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content']
+
+            try:
+                content = retry_with_backoff(_ocr_api_call, max_retries=2, base_delay=2.0, max_delay=10.0)
+            except Exception as e:
+                logger.error(f"OCR failed for page {page_num} in {pdf_path}", exc_info=True)
+                content = f"[OCR failed for page {page_num}: {e}]"
             extracted_markdown += f"## Page {page_num}\n{content}\n\n"
     
     return extracted_markdown.strip()
