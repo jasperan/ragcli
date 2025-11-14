@@ -78,8 +78,8 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     return text[:max_length - len(suffix)] + suffix
 
 
-def parse_env_vars(text: str, env_dict: Optional[Dict[str, str]] = None) -> str:
-    """Parse environment variables in ${VAR_NAME} format."""
+def parse_env_vars(data: Any, env_dict: Optional[Dict[str, str]] = None) -> Any:
+    """Parse environment variables in ${VAR_NAME} format recursively."""
     import os
     import re
 
@@ -90,7 +90,14 @@ def parse_env_vars(text: str, env_dict: Optional[Dict[str, str]] = None) -> str:
         var_name = match.group(1)
         return env_dict.get(var_name, match.group(0))  # Return original if not found
 
-    return re.sub(r'\$\{([^}]+)\}', replace_var, text)
+    if isinstance(data, str):
+        return re.sub(r'\$\{([^}]+)\}', replace_var, data)
+    elif isinstance(data, dict):
+        return {k: parse_env_vars(v, env_dict) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [parse_env_vars(item, env_dict) for item in data]
+    else:
+        return data
 
 
 def to_iso_timestamp(dt: Optional[datetime] = None) -> str:
