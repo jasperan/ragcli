@@ -256,5 +256,3 @@ def log_query(
 
 
 # TODO: Batch inserts, retries, index maintenance
-
-</content>
