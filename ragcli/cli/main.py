@@ -41,7 +41,8 @@ def web(
 @app.command()
 def init_db():
     """Alias for db init."""
-    typer.run(db_app, ['init'])
+    from .commands.db import init
+    init()
 
 def show_help():
     """Show available commands."""
@@ -120,3 +121,6 @@ if __name__ == "__main__":
     else:
         # Functional mode
         app()
+
+# For entry point compatibility
+main = app
