@@ -2,27 +2,14 @@
 
 import yaml
 import os
-import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from copy import deepcopy
 from .defaults import DEFAULT_CONFIG, REQUIRED_FIELDS
+from ..utils.helpers import parse_env_vars
+from ..utils.validators import validate_config as validate_config_values
 
 class ConfigValidationError(Exception):
     """Raised when configuration is invalid."""
-
-def substitute_env_vars(value: Any) -> Any:
-    """Recursively substitute environment variables in config values."""
-    if isinstance(value, dict):
-        return {k: substitute_env_vars(v) for k, v in value.items()}
-    elif isinstance(value, list):
-        return [substitute_env_vars(v) for v in value]
-    elif isinstance(value, str) and '${' in value and '}' in value:
-        match = re.search(r'\$\{([^}]+)\}', value)
-        if match:
-            var_name = match.group(1)
-            env_value = os.getenv(var_name, '')
-            return value.replace('${' + var_name + '}', env_value)
-    return value
 
 def merge_dicts(default: Dict, override: Dict) -> Dict:
     """Deep merge override into default."""
@@ -36,20 +23,21 @@ def merge_dicts(default: Dict, override: Dict) -> Dict:
 
 def validate_config(config: Dict) -> None:
     """Validate the merged configuration."""
-    for section, required in REQUIRED_FIELDS.items():
-        if section not in config:
-            raise ConfigValidationError(f"Missing required section: {section}")
-        for field in required:
-            if field not in config[section]:
-                raise ConfigValidationError(f"Missing required field {field} in {section}")
-    
-    # Basic type validations
-    if 'port' in config.get('ui', {}) and not isinstance(config['ui']['port'], int):
-        raise ConfigValidationError("ui.port must be an integer")
-    
+    # Use comprehensive validation from validators module
+    try:
+        validate_config_values(config)
+    except Exception as e:
+        raise ConfigValidationError(str(e)) from e
+
+    # Additional config-specific validations
+    if 'port' in config.get('ui', {}):
+        port = config['ui']['port']
+        if not isinstance(port, int) or not (1024 <= port <= 65535):
+            raise ConfigValidationError("ui.port must be an integer between 1024 and 65535")
+
     # Sensitive data check
     oracle = config.get('oracle', {})
-    if 'password' in oracle and isinstance(oracle['password'], str) and not oracle['password'].startswith('${') and oracle['password']:
+    if 'password' in oracle and isinstance(oracle['password'], str) and oracle['password'] and not oracle['password'].startswith('${'):
         print("WARNING: Oracle password is hardcoded in config. Consider using environment variables.")
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
@@ -79,7 +67,7 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
         loaded_config = yaml.safe_load(f) or {}
     
     # Substitute env vars
-    substituted = substitute_env_vars(loaded_config)
+    substituted = parse_env_vars(loaded_config)
     
     # Merge with defaults
     merged_config = merge_dicts(DEFAULT_CONFIG, substituted)
