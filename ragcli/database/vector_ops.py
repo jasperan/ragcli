@@ -4,6 +4,9 @@ import uuid
 import json
 from typing import List, Tuple, Dict, Any, Optional
 import oracledb
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def generate_id() -> str:
     """Generate UUID for IDs."""
@@ -134,4 +137,124 @@ def search_similar(
     
     return results
 
-# TODO: Add query logging to QUERIES/QUERY_RESULTS, auto-index creation based on chunk count, batch inserts, retries
+
+def create_vector_index(conn: oracledb.Connection, config: Dict[str, Any]) -> None:
+    """Create vector index based on chunk count and configuration."""
+    # Check if index already exists
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT index_name FROM user_indexes WHERE index_name = 'CHUNKS_EMBEDDING_IDX'")
+        if cursor.fetchone():
+            logger.info("Vector index already exists, skipping creation")
+            return
+    except:
+        pass  # Index doesn't exist, continue
+
+    # Get chunk count to determine index type
+    cursor.execute("SELECT COUNT(*) FROM CHUNKS")
+    chunk_count = cursor.fetchone()[0]
+
+    # Auto-select index type based on chunk count (from spec)
+    if chunk_count <= 1000:
+        index_type = "IVF_FLAT"
+        index_params = ""
+    elif chunk_count <= 100000:
+        index_type = "HNSW"
+        index_params = "WITH (m=16, ef_construction=200)"
+    else:
+        index_type = "HYBRID"
+        index_params = "WITH (m=16, ef_construction=200)"
+
+    # Get accuracy from config
+    accuracy = config.get('vector_index', {}).get('accuracy', 95)
+
+    # Create index
+    index_sql = f"""
+    CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
+    ON CHUNKS(chunk_embedding)
+    ORGANIZATION CLUSTER
+    WITH TARGET ACCURACY {accuracy}
+    {index_params}
+    DISTANCE METRIC COSINE
+    """
+
+    try:
+        logger.info(f"Creating {index_type} vector index for {chunk_count} chunks")
+        cursor.execute(index_sql)
+        conn.commit()
+        logger.info(f"Vector index created successfully: {index_type}")
+    except Exception as e:
+        logger.error(f"Failed to create vector index: {e}", exc_info=True)
+        # Don't raise - index creation failure shouldn't stop the app
+        conn.rollback()
+
+
+def log_query(
+    conn: oracledb.Connection,
+    query_text: str,
+    query_embedding: List[float],
+    selected_documents: Optional[List[str]],
+    top_k: int,
+    similarity_threshold: float,
+    results: List[Dict[str, Any]],
+    response_text: str,
+    response_tokens: int,
+    timing: Dict[str, float]
+) -> str:
+    """Log query and results to database."""
+    query_id = generate_id()
+
+    # Insert query
+    sql = """
+    INSERT INTO QUERIES (
+        query_id, query_text, query_embedding, selected_documents, top_k,
+        similarity_threshold, response_text, response_tokens,
+        embedding_time_ms, search_time_ms, generation_time_ms
+    ) VALUES (
+        :query_id, :query_text, VECTOR(:query_emb, FLOAT32), :docs, :top_k,
+        :threshold, :response, :resp_tokens,
+        :emb_time, :search_time, :gen_time
+    )
+    """
+
+    docs_str = ",".join(selected_documents) if selected_documents else None
+
+    cursor = conn.cursor()
+    cursor.execute(sql, {
+        'query_id': query_id,
+        'query_text': query_text,
+        'query_emb': query_embedding,
+        'docs': docs_str,
+        'top_k': top_k,
+        'threshold': similarity_threshold,
+        'response': response_text,
+        'resp_tokens': response_tokens,
+        'emb_time': timing.get('embedding_time_ms', 0),
+        'search_time': timing.get('search_time_ms', 0),
+        'gen_time': timing.get('generation_time_ms', 0)
+    })
+
+    # Insert query results
+    for result in results[:top_k]:  # Only log top-k results
+        result_sql = """
+        INSERT INTO QUERY_RESULTS (
+            result_id, query_id, chunk_id, similarity_score, rank
+        ) VALUES (
+            :result_id, :query_id, :chunk_id, :score, :rank
+        )
+        """
+        cursor.execute(result_sql, {
+            'result_id': generate_id(),
+            'query_id': query_id,
+            'chunk_id': result['chunk_id'],
+            'score': result['similarity_score'],
+            'rank': results.index(result) + 1
+        })
+
+    conn.commit()
+    return query_id
+
+
+# TODO: Batch inserts, retries, index maintenance
+
+</content>
