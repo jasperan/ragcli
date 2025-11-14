@@ -26,8 +26,7 @@ class OracleClient:
             dsn=dsn,
             min=1,
             max=pool_size,
-            increment=1,
-            threadeds=True
+            increment=1
         )
     
     def get_connection(self) -> oracledb.Connection:
