@@ -2,8 +2,7 @@
 
 import time
 from typing import Dict, List, Any, Optional, Generator
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from .ocr_processor import pdf_to_markdown
+from .document_processor import preprocess_document, chunk_text, get_document_metadata
 from .embedding import generate_embedding, generate_response
 from .similarity_search import search_chunks
 from ..database.vector_ops import insert_document, insert_chunk
@@ -32,29 +31,12 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
         raise ValueError("File too large")
     
     # Process text
-    text = ""
-    extracted_size = 0
-    ocr_processed = 'N'
-    
-    if file_format == 'pdf':
-        ocr_processed = 'Y'
-        text = pdf_to_markdown(str(path), config) or ""
-        extracted_size = len(text.encode('utf-8'))
-    else:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            text = f.read()
-        extracted_size = len(text.encode('utf-8'))
-    
+    text, ocr_used = preprocess_document(file_path, config)
+    ocr_processed = 'Y' if ocr_used else 'N'
+
     # Chunk
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=config['documents']['chunk_size'],
-        chunk_overlap=config['documents']['chunk_size'] * config['documents']['chunk_overlap_percentage'] // 100,
-        length_function=len  # Simple char count, TODO: token count
-    )
-    chunks = splitter.split_text(text)
-    
-    # Simple token count: approx words
-    total_tokens = sum(len(chunk.split()) for chunk in chunks)
+    chunks = chunk_text(text, config)
+    doc_meta = get_document_metadata(text, chunks, ocr_used)
     
     # Get client
     client = OracleClient(config)
@@ -62,19 +44,20 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
     
     # Insert document
     doc_id = insert_document(
-        conn, path.name, file_format.upper(), file_size, extracted_size,
-        len(chunks), total_tokens, config['vector_index']['dimension'], ocr_processed
+        conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
+        doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
     )
-    
+
     # Insert chunks with embeddings
-    for i, chunk in enumerate(chunks):
-        token_count = len(chunk.split())
-        char_count = len(chunk)
-        
-        emb = generate_embedding(chunk, config['ollama']['embedding_model'], config)
-        
+    for i, chunk_data in enumerate(chunks):
+        chunk_text = chunk_data['text']
+        token_count = chunk_data['token_count']
+        char_count = chunk_data['char_count']
+
+        emb = generate_embedding(chunk_text, config['ollama']['embedding_model'], config)
+
         insert_chunk(
-            conn, doc_id, i+1, chunk, token_count, char_count,
+            conn, doc_id, i+1, chunk_text, token_count, char_count,
             embedding=emb, embedding_model=config['ollama']['embedding_model']
         )
     
@@ -87,13 +70,10 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
         'filename': path.name,
         'file_format': file_format,
         'file_size_bytes': file_size,
-        'extracted_text_size_bytes': extracted_size,
-        'chunk_count': len(chunks),
-        'total_tokens': total_tokens,
+        **doc_meta,
         'embedding_dimension': config['vector_index']['dimension'],
-        'approximate_embedding_size_bytes': len(chunks) * config['vector_index']['dimension'] * 4,
-        'upload_time_ms': total_time * 1000,
-        'ocr_processed': ocr_processed == 'Y'
+        'approximate_embedding_size_bytes': doc_meta['chunk_count'] * config['vector_index']['dimension'] * 4,
+        'upload_time_ms': total_time * 1000
     }
     
     return metadata
