@@ -3,7 +3,6 @@
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
-from ..config.config_manager import load_config
 
 
 class ValidationError(Exception):
@@ -29,6 +28,7 @@ def validate_file_path(file_path: str, config: Optional[dict] = None) -> Path:
         ValidationError: If path is invalid
     """
     if config is None:
+        from ..config.config_manager import load_config
         config = load_config()
 
     try:
@@ -169,6 +169,7 @@ def validate_top_k(top_k: int, config: Optional[dict] = None) -> int:
         ValidationError: If invalid
     """
     if config is None:
+        from ..config.config_manager import load_config
         config = load_config()
 
     default_top_k = config.get('rag', {}).get('top_k', 5)
@@ -204,6 +205,7 @@ def validate_similarity_threshold(threshold: float, config: Optional[dict] = Non
         ValidationError: If invalid
     """
     if config is None:
+        from ..config.config_manager import load_config
         config = load_config()
 
     default_threshold = config.get('rag', {}).get('min_similarity_score', 0.5)
