@@ -14,6 +14,7 @@ from .commands.visualize import app as visualize_app
 from .commands.export import app as export_app
 from .commands.db import app as db_app
 from .commands.status import app as status_app
+from .commands.models import app as models_app
 from ..config.config_manager import load_config
 
 app = typer.Typer()
@@ -27,16 +28,19 @@ app.add_typer(visualize_app, name="visualize")
 app.add_typer(export_app, name="export")
 app.add_typer(db_app, name="db")
 app.add_typer(status_app, name="status")
+app.add_typer(models_app, name="models")
 
 @app.command()
-def web(
-    port: int = typer.Option(7860, "--port", "-p"),
-    share: bool = typer.Option(False, "--share")
+def api(
+    host: str = typer.Option("0.0.0.0", "--host", "-h"),
+    port: int = typer.Option(8000, "--port", "-p"),
+    reload: bool = typer.Option(False, "--reload")
 ):
-    """Launch the web UI."""
-    # TODO: Import and launch gradio app
-    from ragcli.ui.web_app import launch_web
-    launch_web(port, share)
+    """Launch the FastAPI server for AnythingLLM integration."""
+    from ragcli.api.server import start_server
+    console.print(f"[cyan]Starting ragcli API server on {host}:{port}[/cyan]")
+    console.print(f"[cyan]API docs available at: http://{host}:{port}/docs[/cyan]")
+    start_server(host=host, port=port, reload=reload)
 
 @app.command()
 def init_db():
@@ -56,8 +60,10 @@ Commands:
   💾 export --logs                Export session logs
   ⚙️ config show                  Show current configuration
   🔍 status                       Check system status
-  🌐 web                          Launch web UI
+  🤖 models list                  List available Ollama models
+  🌐 api                          Launch FastAPI server (AnythingLLM)
   🔧 db init                      Initialize database
+  🔍 db browse                    Browse database tables
   ❓ help                         Show help
   🚪 exit                         Exit application
     """
@@ -81,7 +87,8 @@ def parse_and_run(command: str) -> bool:
         'config': lambda: typer.run(config_app, [cmd] + args),
         'db': lambda: typer.run(db_app, [cmd] + args),
         'status': lambda: typer.run(status_app, [cmd] + args),
-        'web': lambda: web(),
+        'models': lambda: typer.run(models_app, [cmd] + args),
+        'api': lambda: api(),
         'help': lambda: show_help(),
         'exit': lambda: False,
         'quit': lambda: False,

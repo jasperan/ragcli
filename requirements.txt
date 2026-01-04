@@ -2,7 +2,6 @@
 typer
 click
 rich
-gradio
 oracledb
 pyyaml
 aiohttp
@@ -16,6 +15,12 @@ scikit-learn
 psutil
 pypdf2
 pdfplumber
+
+# FastAPI and API server
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
 
 # Development and Testing (optional)
 # pytest

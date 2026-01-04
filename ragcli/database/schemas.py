@@ -1,6 +1,10 @@
 """Database schema definitions for ragcli."""
 
-DOCUMENTS_TABLE = """
+def get_create_schemas_sql(config: dict) -> list:
+    """Return list of SQL statements to create schemas based on config."""
+    dimension = config['vector_index']['dimension']
+
+    DOCUMENTS_TABLE = f"""
 CREATE TABLE DOCUMENTS (
     document_id         VARCHAR2(36) PRIMARY KEY,
     filename            VARCHAR2(512) NOT NULL,
@@ -11,7 +15,7 @@ CREATE TABLE DOCUMENTS (
     last_modified       TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
     chunk_count         NUMBER NOT NULL,
     total_tokens        NUMBER NOT NULL,
-    embedding_dimension NUMBER DEFAULT 768,
+    embedding_dimension NUMBER DEFAULT {dimension},
     approximate_embedding_size_bytes NUMBER,
     ocr_processed       VARCHAR2(1) DEFAULT 'N',
     status              VARCHAR2(20) DEFAULT 'READY',  -- PROCESSING, READY, ERROR
@@ -21,7 +25,7 @@ CREATE TABLE DOCUMENTS (
 );
 """
 
-CHUNKS_TABLE = """
+    CHUNKS_TABLE = f"""
 CREATE TABLE CHUNKS (
     chunk_id            VARCHAR2(36) PRIMARY KEY,
     document_id         VARCHAR2(36) NOT NULL,
@@ -31,7 +35,7 @@ CREATE TABLE CHUNKS (
     character_count     NUMBER NOT NULL,
     start_position      NUMBER,
     end_position        NUMBER,
-    chunk_embedding     VECTOR(768, FLOAT32),
+    chunk_embedding     VECTOR({dimension}, FLOAT32, COSINE),
     embedding_model     VARCHAR2(50),
     created_at          TIMESTAMP DEFAULT SYSTIMESTAMP,
     FOREIGN KEY (document_id) REFERENCES DOCUMENTS(document_id) ON DELETE CASCADE,
@@ -39,11 +43,11 @@ CREATE TABLE CHUNKS (
 );
 """
 
-QUERIES_TABLE = """
+    QUERIES_TABLE = f"""
 CREATE TABLE QUERIES (
     query_id            VARCHAR2(36) PRIMARY KEY,
     query_text          CLOB NOT NULL,
-    query_embedding     VECTOR(768, FLOAT32),
+    query_embedding     VECTOR({dimension}, FLOAT32, COSINE),
     embedding_model     VARCHAR2(50),
     selected_documents  VARCHAR2(2000),  -- Comma-separated doc IDs
     top_k               NUMBER DEFAULT 5,
@@ -61,7 +65,7 @@ CREATE TABLE QUERIES (
 );
 """
 
-QUERY_RESULTS_TABLE = """
+    QUERY_RESULTS_TABLE = """
 CREATE TABLE QUERY_RESULTS (
     result_id           VARCHAR2(36) PRIMARY KEY,
     query_id            VARCHAR2(36) NOT NULL,
@@ -74,21 +78,11 @@ CREATE TABLE QUERY_RESULTS (
 );
 """
 
-VECTOR_INDEX = """
-CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX 
-ON CHUNKS(chunk_embedding) ORGANIZATION CLUSTER 
-WITH TARGET ACCURACY 95
-DISTANCE METRIC COSINE;
-"""
-
-def get_create_schemas_sql() -> list:
-    """Return list of SQL statements to create schemas."""
     return [
-        DOCUMENTS_TABLE,
-        CHUNKS_TABLE,
-        QUERIES_TABLE,
-        QUERY_RESULTS_TABLE,
-        VECTOR_INDEX,
+        ("DOCUMENTS", DOCUMENTS_TABLE),
+        ("CHUNKS", CHUNKS_TABLE),
+        ("QUERIES", QUERIES_TABLE),
+        ("QUERY_RESULTS", QUERY_RESULTS_TABLE),
     ]
 
 # TODO: Auto-select index type based on data size (HNSW/IVF/HYBRID)

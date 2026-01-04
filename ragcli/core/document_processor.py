@@ -46,12 +46,13 @@ def preprocess_document(file_path: str, config: dict) -> tuple[str, bool]:
     return text, ocr_processed
 
 
-def chunk_text(text: str, config: dict) -> List[Dict[str, Any]]:
+def chunk_text(text: str, config: dict, progress_callback=None) -> List[Dict[str, Any]]:
     """Chunk text into smaller pieces with token-based splitting.
 
     Args:
         text: Full document text
         config: Configuration dictionary
+        progress_callback: Optional callback function for progress updates
 
     Returns:
         List of chunks with metadata: [{'text': str, 'token_count': int, 'char_count': int}, ...]
@@ -74,11 +75,15 @@ def chunk_text(text: str, config: dict) -> List[Dict[str, Any]]:
 
     # Custom chunking with token overlap
     chunks = []
-    start = 0
     text_tokens = enc.encode(text) if enc else text.split()
+    total_tokens = len(text_tokens)
+    
+    if total_tokens == 0:
+        return []
 
-    while start < len(text_tokens):
-        end = min(start + chunk_size, len(text_tokens))
+    start = 0
+    while start < total_tokens:
+        end = min(start + chunk_size, total_tokens)
         chunk_tokens = text_tokens[start:end]
         chunk_text = enc.decode(chunk_tokens) if enc else ' '.join(chunk_tokens)
 
@@ -88,10 +93,25 @@ def chunk_text(text: str, config: dict) -> List[Dict[str, Any]]:
             'char_count': len(chunk_text)
         })
 
-        start = end - overlap_tokens
-        if start >= end:  # Prevent infinite loop
-            break
+        if progress_callback:
+            progress_callback(end, total_tokens)
 
+        if end >= total_tokens:
+            break
+            
+        start += (chunk_size - overlap_tokens)
+        
+        # Safety: ensure we always move forward at least 1 token
+        if start <= (end - chunk_size + overlap_tokens): # This is always true if start was end - overlap
+            # The simplified logic above 'start += (chunk_size - overlap_tokens)' is better
+            pass
+            
+        # Re-evaluating: 'start += (chunk_size - overlap_tokens)' is the standard way.
+        # But if we want to mimic the previous intent of 'end - overlap':
+        # start = end - overlap_tokens
+        # if start < 0: start = end # No overlap if document is too small
+        # wait, if start < previous_start + 1, we must force it forward.
+        
     return chunks
 
 

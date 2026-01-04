@@ -36,24 +36,24 @@ def insert_document(
         chunk_count, total_tokens, embedding_dimension, approximate_embedding_size_bytes,
         ocr_processed, metadata_json
     ) VALUES (
-        :doc_id, :filename, :file_format, :file_size_bytes, :extracted_size,
-        :chunk_count, :total_tokens, :dim, :approx_size, :ocr,
-        :metadata
+        :v_doc_id, :v_filename, :v_file_format, :v_file_size_bytes, :v_extracted_size,
+        :v_chunk_count, :v_total_tokens, :v_dim, :v_approx_size, :v_ocr,
+        :v_metadata
     )
     """
     cursor = conn.cursor()
     cursor.execute(sql, {
-        'doc_id': doc_id,
-        'filename': filename,
-        'file_format': file_format,
-        'file_size_bytes': file_size_bytes,
-        'extracted_size': extracted_text_size_bytes,
-        'chunk_count': chunk_count,
-        'total_tokens': total_tokens,
-        'dim': embedding_dimension,
-        'approx_size': approx_emb_size,
-        'ocr': ocr_processed,
-        'metadata': metadata_json
+        'v_doc_id': doc_id,
+        'v_filename': filename,
+        'v_file_format': file_format,
+        'v_file_size_bytes': file_size_bytes,
+        'v_extracted_size': extracted_text_size_bytes,
+        'v_chunk_count': chunk_count,
+        'v_total_tokens': total_tokens,
+        'v_dim': embedding_dimension,
+        'v_approx_size': approx_emb_size,
+        'v_ocr': ocr_processed,
+        'v_metadata': metadata_json
     })
     conn.commit()
     return doc_id
@@ -78,22 +78,22 @@ def insert_chunk(
         chunk_id, document_id, chunk_number, chunk_text, token_count,
         character_count, start_position, end_position, chunk_embedding, embedding_model
     ) VALUES (
-        :chunk_id, :doc_id, :chunk_num, :text, :token_count,
-        :char_count, :start, :end, VECTOR(:embedding, FLOAT32), :model
+        :v_chunk_id, :v_doc_id, :v_chunk_num, :v_text, :v_token_count,
+        :v_char_count, :v_start, :v_end, TO_VECTOR(:v_embedding), :v_model
     )
     """
     cursor = conn.cursor()
     cursor.execute(sql, {
-        'chunk_id': chunk_id,
-        'doc_id': doc_id,
-        'chunk_num': chunk_number,
-        'text': chunk_text,
-        'token_count': token_count,
-        'char_count': character_count,
-        'start': start_pos,
-        'end': end_pos,
-        'embedding': embedding or [],
-        'model': embedding_model
+        'v_chunk_id': chunk_id,
+        'v_doc_id': doc_id,
+        'v_chunk_num': chunk_number,
+        'v_text': chunk_text,
+        'v_token_count': token_count,
+        'v_char_count': character_count,
+        'v_start': start_pos,
+        'v_end': end_pos,
+        'v_embedding': json.dumps(embedding or []),
+        'v_model': embedding_model
     })
     conn.commit()
     return chunk_id
@@ -108,7 +108,7 @@ def search_similar(
     """Search for similar chunks using vector similarity."""
     sql_base = """
     SELECT c.chunk_id, c.document_id, c.chunk_text, c.chunk_number,
-           VECTOR_DISTANCE(c.chunk_embedding, VECTOR(:query_emb, FLOAT32), COSINE) AS similarity_score
+           VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) AS similarity_score
     FROM CHUNKS c
     """
     if document_ids:
@@ -116,22 +116,26 @@ def search_similar(
         sql_base += f" WHERE c.document_id IN ({doc_ids_str}) "
     
     sql = sql_base + """
-    ORDER BY similarity_score ASC  -- Cosine distance, lower is more similar
-    FETCH FIRST :top_k ROWS ONLY
+    ORDER BY similarity_score ASC
+    FETCH FIRST :v_top_k ROWS ONLY
     """
     
     cursor = conn.cursor()
-    cursor.execute(sql, {'query_emb': query_embedding, 'top_k': top_k})
+    cursor.execute(sql, {
+        'v_query_emb': json.dumps(query_embedding),
+        'v_top_k': top_k
+    })
     
     results = []
     for row in cursor:
         score = 1 - row[4]  # Convert distance to similarity (cosine similarity = 1 - distance)
         if score >= min_similarity:
+            chunk_text_val = str(row[2]) if row[2] else ""
             results.append({
                 'chunk_id': row[0],
                 'document_id': row[1],
-                'chunk_number': row[2],
-                'text': row[3][:200] + '...' if len(row[3]) > 200 else row[3],  # Excerpt
+                'chunk_number': row[3],
+                'text': chunk_text_val,
                 'similarity_score': score
             })
     
@@ -211,9 +215,9 @@ def log_query(
         similarity_threshold, response_text, response_tokens,
         embedding_time_ms, search_time_ms, generation_time_ms
     ) VALUES (
-        :query_id, :query_text, VECTOR(:query_emb, FLOAT32), :docs, :top_k,
-        :threshold, :response, :resp_tokens,
-        :emb_time, :search_time, :gen_time
+        :v_query_id, :v_query_text, TO_VECTOR(:v_query_emb), :v_docs, :v_top_k,
+        :v_threshold, :v_response, :v_resp_tokens,
+        :v_emb_time, :v_search_time, :v_gen_time
     )
     """
 
@@ -221,17 +225,17 @@ def log_query(
 
     cursor = conn.cursor()
     cursor.execute(sql, {
-        'query_id': query_id,
-        'query_text': query_text,
-        'query_emb': query_embedding,
-        'docs': docs_str,
-        'top_k': top_k,
-        'threshold': similarity_threshold,
-        'response': response_text,
-        'resp_tokens': response_tokens,
-        'emb_time': timing.get('embedding_time_ms', 0),
-        'search_time': timing.get('search_time_ms', 0),
-        'gen_time': timing.get('generation_time_ms', 0)
+        'v_query_id': query_id,
+        'v_query_text': query_text,
+        'v_query_emb': json.dumps(query_embedding),
+        'v_docs': docs_str,
+        'v_top_k': top_k,
+        'v_threshold': similarity_threshold,
+        'v_response': response_text,
+        'v_resp_tokens': response_tokens,
+        'v_emb_time': timing.get('embedding_time_ms', 0),
+        'v_search_time': timing.get('search_time_ms', 0),
+        'v_gen_time': timing.get('generation_time_ms', 0)
     })
 
     # Insert query results

@@ -29,9 +29,12 @@ def search_chunks(
     client = OracleClient(config)
     search_start = time.perf_counter()
     conn = client.get_connection()
-    results = search_similar(conn, query_embedding, top_k, min_similarity, document_ids)
+    try:
+        results = search_similar(conn, query_embedding, top_k, min_similarity, document_ids)
+    finally:
+        conn.close()
+        client.close()
     search_time = time.perf_counter() - search_start
-    client.close()
     
     total_time = time.perf_counter() - start_time
     
@@ -45,6 +48,7 @@ def search_chunks(
     
     return {
         'results': results,
+        'query_embedding': query_embedding,
         'metrics': metrics
     }
 

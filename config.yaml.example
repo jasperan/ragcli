@@ -10,8 +10,12 @@ oracle:
 # Ollama Configuration
 ollama:
   endpoint: "http://localhost:11434"  # API endpoint URL
+  auto_detect_models: true            # Auto-refresh model list on startup
   embedding_model: "nomic-embed-text" # Embedding model name
   chat_model: "llama2"                # Chat model name
+  fallback_embedding_models:          # Fallback options if primary unavailable
+    - "all-minilm"
+    - "mxbai-embed-large"
   timeout: 30                         # API timeout in seconds
 
 # DeepSeek-OCR Configuration (via vLLM)
@@ -55,13 +59,13 @@ logging:
   backup_count: 5
   detailed_metrics: true         # Log detailed metrics
 
-# UI Configuration
-ui:
-  theme: "dark"                  # dark or light
+# API Configuration (AnythingLLM Integration)
+api:
   host: "0.0.0.0"
-  port: 7860                     # Gradio default
-  share: false                   # Public sharing
-  auto_reload: true
+  port: 8000
+  cors_origins:
+    - "*"                        # Or specific AnythingLLM URL for security
+  enable_swagger: true           # Enable API documentation at /docs
 
 # Application Settings
 app:

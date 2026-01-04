@@ -35,11 +35,6 @@ def validate_config(config: Dict) -> None:
         if not isinstance(port, int) or not (1024 <= port <= 65535):
             raise ConfigValidationError("ui.port must be an integer between 1024 and 65535")
 
-    # Sensitive data check
-    oracle = config.get('oracle', {})
-    if 'password' in oracle and isinstance(oracle['password'], str) and oracle['password'] and not oracle['password'].startswith('${'):
-        print("WARNING: Oracle password is hardcoded in config. Consider using environment variables.")
-
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     """
     Safely load configuration from YAML with environment variable substitution.
@@ -65,13 +60,19 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     
     with open(config_path, "r", encoding="utf-8") as f:
         loaded_config = yaml.safe_load(f) or {}
-    
+
+    # Check for sensitive data before substitution
+    if 'oracle' in loaded_config and 'password' in loaded_config['oracle']:
+        oracle = loaded_config['oracle']
+        if isinstance(oracle['password'], str) and oracle['password'] and not oracle['password'].startswith('${'):
+            print("WARNING: Oracle password is hardcoded in config. Consider using environment variables.")
+
     # Substitute env vars
     substituted = parse_env_vars(loaded_config)
-    
+
     # Merge with defaults
     merged_config = merge_dicts(DEFAULT_CONFIG, substituted)
-    
+
     # Validate
     validate_config(merged_config)
     

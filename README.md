@@ -1,15 +1,18 @@
 # ragcli
 
-RAG CLI and Web UI for Oracle Database 26ai - Upload documents, query with RAG, visualize retrieval chains and embeddings in real-time.
+RAG CLI and REST API for Oracle Database 26ai - Upload documents, query with RAG, and integrate with AnythingLLM for a modern web interface.
 
-ragcli provides a professional terminal interface (Rich-based) and a beautiful web UI (Gradio-like, dark mode) for managing RAG workflows. Supports TXT, MD, PDF (with OCR via DeepSeek-OCR), Ollama for embeddings/LLM, and Oracle 26ai for vector storage/search.
+ragcli provides a professional terminal interface (Rich-based) and a FastAPI backend for managing RAG workflows. Supports TXT, MD, PDF (with OCR via DeepSeek-OCR), all Ollama models with auto-detection, and Oracle 26ai for vector storage/search.
 
 ## Features
-- **CLI**: REPL mode with commands (upload, ask, list-docs, visualize, etc.) + functional mode.
-- **Web UI**: Tabs for Dashboard, Upload, Ask (real-time query), Documents, Visualize (3D embeddings, heatmaps), Settings.
-- **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics.
-- **Visualizations**: Retrieval chain flow, embedding space (UMAP 2D/3D), similarity heatmaps, live search updates.
-- **Deployment**: PyPI, Docker, standalone binary.
+- **Enhanced CLI**: REPL mode with rich progress bars, detailed status, database browser, and model management
+- **Premium Web Interface**: Clean, "Google-style" React frontend with modern aesthetics and fluid animations
+- **FastAPI Backend**: RESTful API for document upload, RAG queries, model listing, and system status
+- **AnythingLLM Integration**: Connect with AnythingLLM for an alternative web UI experience
+- **Ollama Auto-Detection**: Automatically detect and validate all available Ollama models
+- **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics
+- **Visualizations**: CLI-based visualizations and Plotly charts for retrieval analysis
+- **Deployment**: PyPI, Docker Compose, standalone binary
 
 ## Prerequisites
 Before running ragcli:
@@ -24,7 +27,7 @@ See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for setup
 
 ### From Source (Recommended for Development)
 ```bash
-git clone https://github.com/user/ragcli.git
+git clone https://github.com/jasperan/ragcli.git
 cd ragcli
 pip install -r requirements.txt
 # Or editable: pip install -e .
@@ -36,10 +39,31 @@ pip install ragcli
 ragcli config init  # Creates config.yaml from example
 ```
 
-### Docker
+### Docker Compose (Recommended)
+Full stack with ragcli API, AnythingLLM, and Ollama:
+```bash
+# Create .env file
+echo "ORACLE_PASSWORD=your_password" > .env
+
+# Update config.yaml with your Oracle DSN
+
+# Start all services
+DOCKER_API_VERSION=1.44 docker-compose up -d
+
+# Pull Ollama models
+docker exec ollama ollama pull nomic-embed-text
+docker exec ollama ollama pull deepseek-r1
+
+# Access services
+# - AnythingLLM UI: http://localhost:3001
+# - ragcli API: http://localhost:8000/docs
+# - Ollama: http://localhost:11434
+```
+
+### Docker (ragcli API only)
 ```bash
 docker build -t ragcli .
-docker run -it -p 7860:7860 -v $(pwd)/config.yaml:/app/config.yaml ragcli  # Mount config
+docker run -d -p 8000:8000 -v $(pwd)/config.yaml:/app/config.yaml ragcli
 ```
 
 ### Standalone Binary (via PyInstaller)
@@ -67,50 +91,130 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
    ragcli
    ```
    - Type `help` for commands.
-   - Example: `upload document.txt`, `ask "What is RAG?"`, `list-docs`.
+   - Example: `upload document.txt`, `ask "What is RAG?"`, `models list`, `db browse`.
 
-4. **Launch Web UI**:
+4. **Launch API Server**:
    ```bash
-   ragcli web
+   ragcli api --port 8000
    ```
-   - Open http://localhost:7860.
-   - Upload files in Upload tab, query in Ask tab, visualize in Visualize tab.
+   - API docs: http://localhost:8000/docs
+   - Connect with AnythingLLM or use API directly
 
-5. **Functional CLI Example**:
+5. **Launch Premium Frontend (Optional but Recommended)**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   - Access at: http://localhost:5173
+   - Featuring: Google-style search bar, drag-and-drop upload, and animated results.
+
+6. **Functional CLI Example**:
    ```bash
    ragcli upload path/to/doc.pdf
-   ragcli ask "Summarize the document" --show-chain
+   ragcli ask ask "Summarize the document" --show-chain
    ```
 
 ## CLI Usage
 - **REPL Mode**: `ragcli` → Interactive shell with tab completion, history.
-  - Commands: `upload <path>`, `ask <query>`, `list-docs`, `visualize <query_id>`, `web`, `exit`.
+  - Commands: `upload <path>`, `ask <query>`, `models list`, `db browse`, `status --verbose`, `api`, `exit`.
 - **Functional Mode**: `ragcli <command> [options]`.
-  - `ragcli upload --recursive folder/`
+  - `ragcli upload --recursive folder/` - Upload with progress bars
   - `ragcli ask "query" --docs doc1,doc2 --top-k 3`
+  - `ragcli models list` - Show all available Ollama models
+  - `ragcli status --verbose` - Detailed vector statistics
+  - `ragcli db browse --table DOCUMENTS` - Browse database tables
+  - `ragcli db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
   - See `ragcli --help` for full options.
 
-## Web UI
-- **Dark Theme**: Professional Gradio interface with cyan accents.
-- **Real-time**: Type query for live similarity previews.
-- **Tabs**: Dashboard (stats), Upload (drag-drop), Ask (stream response), Documents (table/actions), Visualize (Plotly plots), Settings (edit config).
+## Premium Web Interface
+The project includes a stunning, minimalist frontend inspired by Google AI Studio.
+
+### Features:
+- **Google-Style Search**: A clean, elevated search bar with real-time feedback.
+- **Fluid Animations**: Powered by `framer-motion` for a premium feel.
+- **Drag-and-Drop**: Easy document ingestion with visual previews.
+- **Material 3 Design**: Rounded corners, generous whitespace, and Google Sans typography.
+
+### Usage:
+1. Ensure the backend is running: `ragcli api`
+2. Start the frontend: `cd frontend && npm run dev`
+3. Navigate to `http://localhost:5173`
+
+## API & AnythingLLM Integration
+- **FastAPI Backend**: RESTful API with Swagger documentation at `/docs`
+- **AnythingLLM**: Modern web UI for document management and chat
+- **Docker Compose**: One-command deployment with `docker-compose up -d`
+- **API Endpoints**:
+  - `POST /api/documents/upload` - Upload documents
+  - `GET /api/documents` - List documents
+  - `POST /api/query` - RAG query with streaming
+  - `GET /api/models` - List Ollama models
+  - `GET /api/status` - System health
+  - `GET /api/stats` - Database statistics
+
+See [docs/ANYTHINGLLM_INTEGRATION.md](docs/ANYTHINGLLM_INTEGRATION.md) for detailed setup.
 
 ## Configuration
 Edit `config.yaml`:
 - **oracle**: DSN, credentials, TLS (default true).
-- **ollama**: Endpoint, models (nomic-embed-text, llama2).
+- **ollama**: Endpoint, auto-detection, models (nomic-embed-text, deepseek-r1), fallback options.
+- **api**: Host, port (8000), CORS origins, Swagger docs.
 - **ocr**: vLLM endpoint, enabled for PDFs.
 - **documents**: Chunk size (1000), overlap (10%), max size (100MB).
 - **rag**: Top-k (5), min similarity (0.5).
-- **logging**: Level (INFO), file rotation.
-- **ui**: Port (7860), theme (dark).
+- **logging**: Level (INFO), file rotation, detailed metrics.
 
 Safe loading handles env vars (e.g., `${ORACLE_PASSWORD}`) and validation.
 
+## New CLI Features
+
+### Enhanced Progress Tracking
+Upload documents with real-time progress bars showing:
+- File processing status
+- Chunking progress
+- Embedding generation with ETA
+- Database insertion progress
+
+```bash
+ragcli upload large_document.pdf
+# [████████████████████████████████████████] 100% Embedding chunk 45/45... 1.2s remaining
+```
+
+### Detailed Status & Monitoring
+```bash
+ragcli status --verbose
+```
+Shows:
+- Vector configuration (dimension, index type, HNSW parameters)
+- Storage statistics (vectors, documents, tokens, estimated size)
+- Index metadata (index names, status)
+- Performance metrics (search latency, cache hit rate)
+- Recommendations for optimization
+
+### Interactive Database Browser
+```bash
+ragcli db browse --table DOCUMENTS --limit 20
+ragcli db query "SELECT * FROM DOCUMENTS WHERE file_format='PDF'"
+ragcli db stats
+```
+Browse tables with pagination, execute custom SQL queries, view database statistics.
+
+### Model Management
+```bash
+ragcli models list                    # Show all Ollama models
+ragcli models validate                # Validate configured models
+ragcli models check llama3            # Check if specific model exists
+```
+
 ## Troubleshooting
-- **Ollama unreachable**: Run `ollama serve` and check endpoint.
-- **Oracle connection failed**: Verify DSN/credentials, TLS settings.
-- **OCR errors**: Ensure vLLM running with DeepSeek-OCR model.
+- **Ollama unreachable**: Run `ollama serve` and check endpoint. Use `ragcli models list` to verify.
+- **Oracle DPY-1005 (Busy Connection)**: Fixed! Ensure you are using the latest version which properly handles connection pooling and closure.
+- **Oracle ORA-01745/01484 (Vector Ingestion)**: Fixed! Vector ingestion now uses robust `TO_VECTOR` with JSON-serialized input for maximum compatibility.
+- **Looping/Stuck Upload**: Fixed! Corrected infinite loop in `chunk_text` for small documents (<100 tokens).
+- **OCR errors**: Ensure vLLM is running with DeepSeek-OCR model. Verify `config.yaml` points to the correct port (default 8001 to avoid API conflict).
+- **Model not found**: Run `ragcli models validate` for suggestions. Pull with `ollama pull <model>`.
+- **API connection**: Check `ragcli api` is running. Test with `curl http://localhost:8000/api/status`.
 - **Logs**: Check `./logs/ragcli.log` for details (DEBUG mode for verbose).
 
 For issues, run with `--debug` or set `app.debug: true`.
