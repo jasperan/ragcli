@@ -50,14 +50,14 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
 
     # Insert chunks with embeddings
     for i, chunk_data in enumerate(chunks):
-        chunk_text = chunk_data['text']
+        chunk_content = chunk_data['text']
         token_count = chunk_data['token_count']
         char_count = chunk_data['char_count']
 
-        emb = generate_embedding(chunk_text, config['ollama']['embedding_model'], config)
+        emb = generate_embedding(chunk_content, config['ollama']['embedding_model'], config)
 
         insert_chunk(
-            conn, doc_id, i+1, chunk_text, token_count, char_count,
+            conn, doc_id, i+1, chunk_content, token_count, char_count,
             embedding=emb, embedding_model=config['ollama']['embedding_model']
         )
     
