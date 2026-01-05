@@ -178,23 +178,45 @@ Upload documents with real-time progress bars showing:
 
 ```bash
 ragcli upload large_document.pdf
-# [████████████████████████████████████████] 100% Embedding chunk 45/45... 1.2s remaining
+# ... progress bar animation ...
+# Then displays summary:
+# ╭───────────────────────────────────────────────────── Upload Summary ─────────────────────────────────────────────────────╮
+# │ Document ID: 68b152f0-5c22-4952-a552-8bc47de29427                                                                        │
+# │ Filename: test_document.txt                                                                                              │
+# │ Format: TXT                                                                                                              │
+# │ Size: 0.11 KB                                                                                                            │
+# │ Chunks: 1                                                                                                                │
+# │ Total Tokens: 22                                                                                                         │
+# │ Upload Time: 826 ms                                                                                                      │
+# ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ### Detailed Status & Monitoring
 ```bash
 ragcli status --verbose
-```
-Shows:
-- Vector configuration (dimension, index type, HNSW parameters)
-- Storage statistics (vectors, documents, tokens, estimated size)
-- Index metadata (index names, status)
-- Performance metrics (search latency, cache hit rate)
-- Recommendations for optimization
+# ragcli Status                                                        
+# ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+# ┃ Component  ┃ Status       ┃ Details                                                                                      ┃
+# ┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+# │ Database   │ connected    │ Oracle DB connected successfully                                                             │
+# │ Documents  │ ok           │ 5 docs, 3 vectors                                                                            │
+# │ Ollama     │ connected    │ Ollama connected (24 models)                                                                 │
+# │ Overall    │ issues       │ Some issues detected                                                                         │
+# └────────────┴──────────────┴──────────────────────────────────────────────────────────────────────────────────────────────┘
+#
+# ═══ Vector Statistics ═══
+# ... (tables for Vector Config, Storage, Performance)
 
 ### Interactive Database Browser
 ```bash
 ragcli db browse --table DOCUMENTS --limit 20
+# DOCUMENTS (Rows 1-5 of 6)                                                  
+# ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+# ┃ ID                               ┃ Filename          ┃ Format ┃ Size (KB) ┃ Chunks ┃ Tokens ┃ Uploaded                   ┃
+# ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+# │ 68b152f0-5c22...    │ test_document.txt │ TXT    │ 0.11      │ 1      │ 22     │ 2026-01-05 16:34:47.038679 │
+# └──────────────────────────────────┴───────────────────┴────────┴───────────┴────────┴────────┴────────────────────────────┘
+
 ragcli db query "SELECT * FROM DOCUMENTS WHERE file_format='PDF'"
 ragcli db stats
 ```
@@ -202,7 +224,15 @@ Browse tables with pagination, execute custom SQL queries, view database statist
 
 ### Model Management
 ```bash
-ragcli models list                    # Show all Ollama models
+ragcli models list
+# ┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+# ┃ Model Name              ┃ Type      ┃ Size     ┃ Modified            ┃
+# ┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+# │ gemma3:270m             │ Chat/LLM  │ 0.27 GB  │ 2026-01-05T15:00:52 │
+# │ deepseek-r1:latest      │ Chat/LLM  │ 4.36 GB  │ 2025-04-11T18:39:00 │
+# │ nomic-embed-text:latest │ Embedding │ 0.26 GB  │ 2025-11-14T21:38:46 │
+# └─────────────────────────┴───────────┴──────────┴─────────────────────┘
+
 ragcli models validate                # Validate configured models
 ragcli models check llama3            # Check if specific model exists
 ```

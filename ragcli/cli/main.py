@@ -21,14 +21,23 @@ app = typer.Typer()
 console = Console()
 
 app.add_typer(config_app, name="config")
-app.add_typer(upload_app, name="upload")
-app.add_typer(query_app, name="ask")
+# app.add_typer(upload_app, name="upload") # Deprecated: exposed as single command
+# app.add_typer(query_app, name="ask")     # Deprecated: exposed as single command
 app.add_typer(documents_app, name="docs")
 app.add_typer(visualize_app, name="visualize")
 app.add_typer(export_app, name="export")
 app.add_typer(db_app, name="db")
-app.add_typer(status_app, name="status")
+# app.add_typer(status_app, name="status") # Deprecated: exposed as single command
 app.add_typer(models_app, name="models")
+
+# Expose commands directly
+from .commands.upload import add as upload_cmd
+from .commands.query import ask as ask_cmd
+from .commands.status import status as status_cmd
+
+app.command(name="upload")(upload_cmd)
+app.command(name="ask")(ask_cmd)
+app.command(name="status")(status_cmd)
 
 @app.command()
 def api(
