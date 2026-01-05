@@ -42,6 +42,7 @@ class QueryRequest(BaseModel):
     top_k: Optional[int] = Field(5, ge=1, le=50, description="Number of chunks to retrieve")
     min_similarity: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Minimum similarity score")
     stream: bool = Field(False, description="Enable streaming response")
+    include_embeddings: bool = Field(False, description="Include vector embeddings in response")
 
 
 class ChunkResult(BaseModel):
@@ -51,12 +52,14 @@ class ChunkResult(BaseModel):
     text: str
     similarity_score: float
     chunk_index: int
+    embedding: Optional[List[float]] = None
 
 
 class QueryResponse(BaseModel):
     """Response for RAG query."""
     response: str
     chunks: List[ChunkResult]
+    query_embedding: Optional[List[float]] = None
     metrics: Dict[str, Any]
 
 
@@ -88,7 +91,6 @@ class SystemStatus(BaseModel):
     healthy: bool
     database: ComponentStatus
     ollama: ComponentStatus
-    vllm: ComponentStatus
     timestamp: datetime
 
 

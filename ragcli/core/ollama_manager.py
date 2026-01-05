@@ -178,7 +178,7 @@ def auto_select_chat_model(config: Optional[Dict[str, Any]] = None) -> Optional[
                 return model
     
     # Check preference order
-    preferences = ['deepseek', 'llama3', 'llama2', 'mistral']
+    preferences = ['gemma3', 'gemma', 'deepseek', 'llama3', 'llama2', 'mistral']
     
     for pref in preferences:
         for model in available_models:

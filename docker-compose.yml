@@ -47,30 +47,6 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-  # Optional: vLLM for OCR (DeepSeek-OCR)
-  vllm-ocr:
-    image: vllm/vllm-openai:latest
-    container_name: vllm-ocr
-    ports:
-      - "8001:8000"
-    command: >
-      --model deepseek-ai/DeepSeek-OCR
-      --port 8000
-      --host 0.0.0.0
-    volumes:
-      - vllm-cache:/root/.cache/huggingface
-    networks:
-      - ragcli-network
-    restart: unless-stopped
-    # Uncomment for GPU support:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-
 volumes:
   ragcli-data:
     driver: local
@@ -80,8 +56,7 @@ volumes:
     driver: local
   ollama-data:
     driver: local
-  vllm-cache:
-    driver: local
+
 
 networks:
   ragcli-network:

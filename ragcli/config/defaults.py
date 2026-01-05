@@ -12,15 +12,8 @@ DEFAULT_CONFIG = {
     "ollama": {
         "endpoint": "http://localhost:11434",
         "embedding_model": "nomic-embed-text",
-        "chat_model": "llama2",
+        "chat_model": "gemma3:270m",
         "timeout": 30,
-    },
-    "ocr": {
-        "vllm_endpoint": "http://localhost:8000",
-        "enabled": True,
-        "model": "deepseek-ai/DeepSeek-OCR",
-        "temperature": 0.0,
-        "max_tokens": 8192,
     },
     "documents": {
         "chunk_size": 1000,

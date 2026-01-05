@@ -1,13 +1,22 @@
 # ragcli
 
-RAG CLI and REST API for Oracle Database 26ai - Upload documents, query with RAG, and integrate with AnythingLLM for a modern web interface.
+An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vector search and **Ollama** for local LLM inference.
 
-ragcli provides a professional terminal interface (Rich-based) and a FastAPI backend for managing RAG workflows. Supports TXT, MD, PDF (with OCR via DeepSeek-OCR), all Ollama models with auto-detection, and Oracle 26ai for vector storage/search.
+## Architecture
+
+1. **Frontend**: React (Vite) + TailwindCSS
+2. **Backend**: FastAPI
+3. **Database**: Oracle Database 23ai Free (Vector Store)
+4. **LLM**: Ollama (Local Inference)
 
 ## Features
-- **Enhanced CLI**: REPL mode with rich progress bars, detailed status, database browser, and model management
-- **Premium Web Interface**: Clean, "Google-style" React frontend with modern aesthetics and fluid animations
-- **FastAPI Backend**: RESTful API for document upload, RAG queries, model listing, and system status
+
+- 🚀 **Oracle Database 23ai**: AI Vector Search integration
+- 🤖 **Ollama Integration**: Defaulting to the efficient `gemma3:270m` for chat
+- 📊 **Real-time Visualization**: Dynamic vector space visualization and heatmap of search calculations
+- 📄 **Document Processing**: Support for PDF, Markdown, and Text
+- ⚡ **FastAPI Backend**: Robust API with streaming support
+- 🎨 **Modern UI**: React + Tailwind + Vite frontend with modern aesthetics and fluid animations
 - **AnythingLLM Integration**: Connect with AnythingLLM for an alternative web UI experience
 - **Ollama Auto-Detection**: Automatically detect and validate all available Ollama models
 - **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics
@@ -16,10 +25,9 @@ ragcli provides a professional terminal interface (Rich-based) and a FastAPI bac
 
 ## Prerequisites
 Before running ragcli:
-1. **Oracle Database 26ai**: Set up with vector capabilities. Provide username, password, DSN in config.yaml.
-2. **Ollama**: Install and run `ollama serve`. Pull models: `ollama pull nomic-embed-text` (embeddings), `ollama pull llama2` (chat).
-3. **vLLM for OCR**: Install vLLM, run `python -m vllm.entrypoints.openai.api_server --model deepseek-ai/DeepSeek-OCR --port 8000`.
-4. **Python 3.9+**: With pip.
+1. **Oracle Database 23ai**: Set up with vector capabilities. Provide username, password, DSN in config.yaml.
+2. **Ollama**: Install and run `ollama serve`. Pull models: `ollama pull nomic-embed-text` (embeddings), `ollama pull gemma3:270m` (chat).
+3. **Python 3.9+**: With pip.
 
 See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for setup links.
 
@@ -52,7 +60,7 @@ DOCKER_API_VERSION=1.44 docker-compose up -d
 
 # Pull Ollama models
 docker exec ollama ollama pull nomic-embed-text
-docker exec ollama ollama pull deepseek-r1
+docker exec ollama ollama pull gemma3:270m
 
 # Access services
 # - AnythingLLM UI: http://localhost:3001
@@ -77,7 +85,7 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 1. **Configure**:
    ```bash
    cp config.yaml.example config.yaml
-   # Edit config.yaml: Set oracle DSN/username/password (use ${ENV_VAR} for secrets), ollama endpoint, vllm endpoint.
+   # Edit config.yaml: Set oracle DSN/username/password (use ${ENV_VAR} for secrets), ollama endpoint.
    # Export env vars if using: export ORACLE_PASSWORD=yourpass
    ```
 
@@ -112,7 +120,7 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 6. **Functional CLI Example**:
    ```bash
    ragcli upload path/to/doc.pdf
-   ragcli ask ask "Summarize the document" --show-chain
+   ragcli ask "Summarize the document" --show-chain
    ```
 
 ## CLI Usage
@@ -135,6 +143,7 @@ The project includes a stunning, minimalist frontend inspired by Google AI Studi
 - **Fluid Animations**: Powered by `framer-motion` for a premium feel.
 - **Drag-and-Drop**: Easy document ingestion with visual previews.
 - **Material 3 Design**: Rounded corners, generous whitespace, and Google Sans typography.
+- **Visual Vector Search**: Real-time heatmap of query vs result embeddings.
 
 ### Usage:
 1. Ensure the backend is running: `ragcli api`
@@ -157,10 +166,17 @@ See [docs/ANYTHINGLLM_INTEGRATION.md](docs/ANYTHINGLLM_INTEGRATION.md) for detai
 
 ## Configuration
 Edit `config.yaml`:
-- **oracle**: DSN, credentials, TLS (default true).
-- **ollama**: Endpoint, auto-detection, models (nomic-embed-text, deepseek-r1), fallback options.
+```yaml
+oracle:
+  dsn: "localhost:1521/FREEPDB1"
+  username: "rag_user"
+  password: "your_password"
+
+ollama:
+  endpoint: "http://localhost:11434"
+  chat_model: "gemma3:270m"
+```
 - **api**: Host, port (8000), CORS origins, Swagger docs.
-- **ocr**: vLLM endpoint, enabled for PDFs.
 - **documents**: Chunk size (1000), overlap (10%), max size (100MB).
 - **rag**: Top-k (5), min similarity (0.5).
 - **logging**: Level (INFO), file rotation, detailed metrics.
@@ -206,6 +222,7 @@ ragcli status --verbose
 #
 # ═══ Vector Statistics ═══
 # ... (tables for Vector Config, Storage, Performance)
+```
 
 ### Interactive Database Browser
 ```bash
@@ -229,7 +246,6 @@ ragcli models list
 # ┃ Model Name              ┃ Type      ┃ Size     ┃ Modified            ┃
 # ┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
 # │ gemma3:270m             │ Chat/LLM  │ 0.27 GB  │ 2026-01-05T15:00:52 │
-# │ deepseek-r1:latest      │ Chat/LLM  │ 4.36 GB  │ 2025-04-11T18:39:00 │
 # │ nomic-embed-text:latest │ Embedding │ 0.26 GB  │ 2025-11-14T21:38:46 │
 # └─────────────────────────┴───────────┴──────────┴─────────────────────┘
 
@@ -242,7 +258,6 @@ ragcli models check llama3            # Check if specific model exists
 - **Oracle DPY-1005 (Busy Connection)**: Fixed! Ensure you are using the latest version which properly handles connection pooling and closure.
 - **Oracle ORA-01745/01484 (Vector Ingestion)**: Fixed! Vector ingestion now uses robust `TO_VECTOR` with JSON-serialized input for maximum compatibility.
 - **Looping/Stuck Upload**: Fixed! Corrected infinite loop in `chunk_text` for small documents (<100 tokens).
-- **OCR errors**: Ensure vLLM is running with DeepSeek-OCR model. Verify `config.yaml` points to the correct port (default 8001 to avoid API conflict).
 - **Model not found**: Run `ragcli models validate` for suggestions. Pull with `ollama pull <model>`.
 - **API connection**: Check `ragcli api` is running. Test with `curl http://localhost:8000/api/status`.
 - **Logs**: Check `./logs/ragcli.log` for details (DEBUG mode for verbose).
@@ -251,9 +266,8 @@ For issues, run with `--debug` or set `app.debug: true`.
 
 ## Annex A: Detailed Prerequisites
 - **Ollama**: https://ollama.com/ - `curl -fsSL https://ollama.com/install.sh | sh`
-- **vLLM**: `pip install vllm` - See https://docs.vllm.ai/en/latest/
-- **Oracle 26ai**: Enable vector search; connect via oracledb (no wallet needed for TLS).
-- **Models**: Ensure pulled in Ollama; DeepSeek-OCR in vLLM (HuggingFace).
+- **Oracle 23ai**: Enable vector search; connect via oracledb (no wallet needed for TLS).
+- **Models**: Ensure pulled in Ollama.
 
 ## Annex B: Full Specification
 See `.clinerules/ragcli-formal.md` for architecture, schemas, workflows.

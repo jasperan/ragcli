@@ -108,7 +108,8 @@ def search_similar(
     """Search for similar chunks using vector similarity."""
     sql_base = """
     SELECT c.chunk_id, c.document_id, c.chunk_text, c.chunk_number,
-           VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) AS similarity_score
+           VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) AS similarity_score,
+           c.chunk_embedding
     FROM CHUNKS c
     """
     if document_ids:
@@ -131,12 +132,24 @@ def search_similar(
         score = 1 - row[4]  # Convert distance to similarity (cosine similarity = 1 - distance)
         if score >= min_similarity:
             chunk_text_val = str(row[2]) if row[2] else ""
+            # Parse embedding if it's a string, or use as is if it's already a list (depending on driver version/type)
+            # thicker-client might return array.thin returns bytes or string?
+            # Usually vector comes back as array or we need to parse.
+            # python-oracledb for VECTOR type returns array.array('d') or list.
+            # Let's assume it returns a list-like object.
+            db_embedding = row[5]
+            if hasattr(db_embedding, 'tolist'):
+                 embedding_list = db_embedding.tolist()
+            else:
+                 embedding_list = list(db_embedding) if db_embedding else []
+
             results.append({
                 'chunk_id': row[0],
                 'document_id': row[1],
                 'chunk_number': row[3],
                 'text': chunk_text_val,
-                'similarity_score': score
+                'similarity_score': score,
+                'embedding': embedding_list
             })
     
     return results

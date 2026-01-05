@@ -194,7 +194,8 @@ def ask_query(
     top_k: Optional[int] = None,
     min_similarity: Optional[float] = None,
     config: Optional[dict] = None,
-    stream: bool = False
+    stream: bool = False,
+    include_embeddings: bool = False
 ) -> Dict[str, Any]:
     """Ask a query using RAG."""
     if config is None:
@@ -253,7 +254,7 @@ def ask_query(
     prompt_tokens = len(query.split()) + len(context.split())
     completion_tokens = len(response.split())
     
-    return {
+    response_data = {
         'response': response,
         'results': results,
         'metrics': {
@@ -266,5 +267,11 @@ def ask_query(
             **search_metrics
         }
     }
+
+    if include_embeddings:
+        response_data['query_embedding'] = search_result['query_embedding']
+        # embeddings are already in 'results' from search_similar, so they are passed through
+    
+    return response_data
 
 # TODO: Log query to DB, reranking, advanced prompting, streaming full support

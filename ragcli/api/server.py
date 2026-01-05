@@ -207,7 +207,8 @@ async def query_endpoint(request: QueryRequest):
             top_k=request.top_k,
             min_similarity=request.min_similarity,
             config=config,
-            stream=False  # TODO: Implement streaming
+            stream=False,  # TODO: Implement streaming
+            include_embeddings=request.include_embeddings
         )
         
         chunks = [
@@ -216,7 +217,8 @@ async def query_endpoint(request: QueryRequest):
                 document_id=chunk['document_id'],
                 text=chunk['text'],
                 similarity_score=chunk['similarity_score'],
-                chunk_index=chunk['chunk_index']
+                chunk_index=chunk['chunk_index'],
+                embedding=chunk.get('embedding') if request.include_embeddings else None
             )
             for chunk in result['results']
         ]
@@ -224,6 +226,7 @@ async def query_endpoint(request: QueryRequest):
         return QueryResponse(
             response=result['response'],
             chunks=chunks,
+            query_embedding=result.get('query_embedding'),
             metrics=result['metrics']
         )
         
@@ -281,10 +284,6 @@ async def get_status():
             ollama=ComponentStatus(
                 status=status['ollama']['status'],
                 message=status['ollama']['message']
-            ),
-            vllm=ComponentStatus(
-                status=status['vllm']['status'],
-                message=status['vllm']['message']
             ),
             timestamp=datetime.now()
         )

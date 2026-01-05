@@ -70,34 +70,11 @@ def check_ollama(config: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "disconnected", "message": f"Ollama unreachable: {str(e)}"}
 
-def check_vllm(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Check vLLM API for OCR."""
-    try:
-        endpoint = config['ocr']['vllm_endpoint']
-        resp = requests.get(f"{endpoint}/health", timeout=5)
-        if resp.status_code == 200:
-            return {"status": "connected", "message": "vLLM connected"}
-        else:
-            return {"status": "error", "message": f"vLLM error {resp.status_code}"}
-    except Exception as e:
-        return {"status": "disconnected", "message": f"vLLM unreachable: {str(e)}"}
-
-def get_overall_status(config: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Get comprehensive status."""
-    if config is None:
-        config = load_config()
-    
-    db = check_db_connection(config)
-    stats = get_document_stats(config)
-    ollama = check_ollama(config)
-    vllm = check_vllm(config)
-    
     overall = {
         "database": db,
         "documents": stats,
         "ollama": ollama,
-        "vllm": vllm,
-        "healthy": all(s["status"] in ["connected", "ok"] for s in [db, ollama, vllm])
+        "healthy": all(s["status"] in ["connected", "ok"] for s in [db, ollama])
     }
     
     return overall
@@ -114,7 +91,6 @@ def print_status(status: Dict[str, Any], rich_output: bool = True):
         table.add_row("Database", status["database"]["status"], status["database"]["message"])
         table.add_row("Documents", status["documents"]["status"], f"{status['documents']['documents']} docs, {status['documents']['vectors']} vectors")
         table.add_row("Ollama", status["ollama"]["status"], status["ollama"]["message"])
-        table.add_row("vLLM (OCR)", status["vllm"]["status"], status["vllm"]["message"])
         table.add_row("Overall", "healthy" if status["healthy"] else "issues", "All checks passed" if status["healthy"] else "Some issues detected")
         
         console.print(table)

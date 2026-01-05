@@ -12,19 +12,12 @@ ollama:
   endpoint: "http://localhost:11434"  # API endpoint URL
   auto_detect_models: true            # Auto-refresh model list on startup
   embedding_model: "nomic-embed-text" # Embedding model name
-  chat_model: "llama2"                # Chat model name
+  chat_model: "gemma3:270m"                # Chat model name
   fallback_embedding_models:          # Fallback options if primary unavailable
     - "all-minilm"
     - "mxbai-embed-large"
   timeout: 30                         # API timeout in seconds
 
-# DeepSeek-OCR Configuration (via vLLM)
-ocr:
-  vllm_endpoint: "http://localhost:8000"  # vLLM API endpoint
-  enabled: true
-  model: "deepseek-ai/DeepSeek-OCR"
-  temperature: 0.0
-  max_tokens: 8192
 
 # Document Processing
 documents:
