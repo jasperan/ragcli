@@ -69,25 +69,34 @@ def clear_screen():
 def print_header():
     clear_screen()
     config = load_config()
+    version = config.get('app', {}).get('version', '1.0.0')
     title = f"""
     ╔════════════════════════════════════════════════════════════════╗
     ║                 RAGCLI INTERFACE                               ║
-    ║        Oracle DB 26ai RAG System v{config.get('app', {}).get('version', '1.0.0')}                ║
+    ║        Oracle DB 26ai RAG System v{version:<20}         ║
     ╚════════════════════════════════════════════════════════════════╝
     """
-    console.print(Panel(title, style="bold cyan", border_style="cyan"))
+    console.print(Panel(title, style="bold cyan", border_style="cyan", subtitle="RAG Management Layer"))
+    console.print(f"[dim]Working Directory: {os.getcwd()}[/dim]\n")
 
 def menu_documents():
     while True:
         print_header()
-        console.print("[bold yellow]Document Management[/bold yellow]")
-        console.print("1. List all documents")
-        console.print("2. Delete a document")
-        console.print("0. Back to Main Menu")
         
-        choice = Prompt.ask("\nSelect option", choices=["1", "2", "0"], default="0")
+        choices = [
+            questionary.Choice("List all documents", value="1"),
+            questionary.Choice("Delete a document", value="2"),
+            questionary.Separator(),
+            questionary.Choice("Back to Main Menu", value="0")
+        ]
         
-        if choice == "0":
+        choice = questionary.select(
+            "Document Management",
+            choices=choices,
+            use_arrow_keys=True
+        ).ask()
+        
+        if not choice or choice == "0":
             return
         elif choice == "1":
             list_docs(format="table", verbose=False)
@@ -104,16 +113,23 @@ def menu_documents():
 def menu_db():
     while True:
         print_header()
-        console.print("[bold yellow]Database Management[/bold yellow]")
-        console.print("1. Initialize Database (Schemas & Indices)")
-        console.print("2. Browse Tables")
-        console.print("3. Execute SQL Query")
-        console.print("4. Show Statistics")
-        console.print("0. Back to Main Menu")
         
-        choice = Prompt.ask("\nSelect option", choices=["1", "2", "3", "4", "0"], default="0")
+        choices = [
+            questionary.Choice("Initialize Database (Schemas & Indices)", value="1"),
+            questionary.Choice("Browse Tables", value="2"),
+            questionary.Choice("Execute SQL Query", value="3"),
+            questionary.Choice("Show Statistics", value="4"),
+            questionary.Separator(),
+            questionary.Choice("Back to Main Menu", value="0")
+        ]
         
-        if choice == "0":
+        choice = questionary.select(
+            "Database Management",
+            choices=choices,
+            use_arrow_keys=True
+        ).ask()
+        
+        if not choice or choice == "0":
             return
         elif choice == "1":
             if Confirm.ask("This will create tables and indices. Continue?", default=True):
@@ -123,7 +139,11 @@ def menu_db():
                     console.print(f"[red]Error: {e}[/red]")
             input("\nPress Enter to continue...")
         elif choice == "2":
-            table = Prompt.ask("Select table", choices=["DOCUMENTS", "CHUNKS", "QUERIES"], default="DOCUMENTS")
+            table = questionary.select(
+                "Select table",
+                choices=["DOCUMENTS", "CHUNKS", "QUERIES"],
+                default="DOCUMENTS"
+            ).ask()
             limit = IntPrompt.ask("Limit rows", default=20)
             try:
                 db_browse(table=table, limit=limit, offset=0)
@@ -156,26 +176,32 @@ def menu_visualize():
 
 
 def run_repl():
-    """Run the interactive mode."""
+    """Run the interactive mode with enhanced UI."""
     while True:
         print_header()
-        console.print("[bold]Select a Task:[/bold]")
         
-        table = Table(show_header=False, box=None)
-        table.add_row("[1]", "Upload Document", style="cyan")
-        table.add_row("[2]", "Ask Question", style="cyan")
-        table.add_row("[3]", "Manage Documents", style="cyan")
-        table.add_row("[4]", "Visualize Chain", style="cyan")
-        table.add_row("[5]", "Database Management", style="cyan")
-        table.add_row("[6]", "System Status", style="cyan")
-        table.add_row("[0]", "Exit", style="red")
+        choices = [
+            questionary.Choice("Upload Document", value="1"),
+            questionary.Choice("Ask Question", value="2"),
+            questionary.Choice("Manage Documents", value="3"),
+            questionary.Choice("Visualize Chain", value="4"),
+            questionary.Choice("Database Management", value="5"),
+            questionary.Choice("System Status", value="6"),
+            questionary.Separator(),
+            questionary.Choice("Exit", value="0")
+        ]
         
-        console.print(table)
-        
-        choice = Prompt.ask("\nEnter choice", choices=["1", "2", "3", "4", "5", "6", "0"], default="2")
+        choice = questionary.select(
+            "Select a Task:",
+            choices=choices,
+            use_arrow_keys=True
+        ).ask()
         
         try:
-            if choice == "1":
+            if not choice or choice == "0":
+                console.print("[bold]Goodbye![/bold]")
+                break
+            elif choice == "1":
                 # Interactive upload
                 upload_cmd(file_path=None, recursive=False, verbose=True)
                 input("\nPress Enter to continue...")
@@ -192,9 +218,6 @@ def run_repl():
             elif choice == "6":
                 status_cmd()
                 input("\nPress Enter to continue...")
-            elif choice == "0":
-                console.print("[bold]Goodbye![/bold]")
-                break
         except Exception as e:
             console.print(f"[bold red]An error occurred:[/bold red] {e}")
             input("\nPress Enter to continue...")
@@ -202,7 +225,10 @@ def run_repl():
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         # No args, run REPL
-        run_repl()
+        try:
+            run_repl()
+        except KeyboardInterrupt:
+            sys.exit(0)
     else:
         # Functional mode
         app()
