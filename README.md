@@ -98,7 +98,23 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
    ```bash
    ragcli
    ```
-   - Type `help` for commands.
+   Now features an interactive menu system:
+   ```
+    ╔════════════════════════════════════════════════════════════════╗
+    ║                 RAGCLI INTERFACE                               ║
+    ║        Oracle DB 26ai RAG System v1.0.0                        ║
+    ╚════════════════════════════════════════════════════════════════╝
+
+   Select a Task:
+    [1]  Upload Document     
+    [2]  Ask Question        
+    [3]  Manage Documents    
+    [4]  Visualize Chain     
+    [5]  Database Management 
+    [6]  System Status       
+    [0]  Exit                
+   ```
+   - Type `help` for classic commands.
    - Example: `upload document.txt`, `ask "What is RAG?"`, `models list`, `db browse`.
 
 4. **Launch API Server**:

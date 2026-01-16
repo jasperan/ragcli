@@ -7,18 +7,23 @@ from rich.console import Console
 from rich.panel import Panel
 from ragcli.core.rag_engine import upload_document_with_progress
 from ragcli.config.config_manager import load_config
+from typing import Optional
 
 app = typer.Typer()
 console = Console()
 
 @app.command("add")
 def add(
-    file_path: str,
+    file_path: Optional[str] = typer.Argument(None, help="Path to file or directory"),
     recursive: bool = typer.Option(False, "--recursive", "-r", help="Upload directory recursively"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output")
 ):
     """Upload document(s) to the vector store."""
     config = load_config()
+
+    if file_path is None:
+        from rich.prompt import Prompt
+        file_path = Prompt.ask("Enter path to file or directory")
     
     path = Path(file_path)
     if not path.exists():

@@ -70,6 +70,12 @@ def check_ollama(config: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "disconnected", "message": f"Ollama unreachable: {str(e)}"}
 
+def get_overall_status(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Get status of all components."""
+    db = check_db_connection(config)
+    stats = get_document_stats(config)
+    ollama = check_ollama(config)
+    
     overall = {
         "database": db,
         "documents": stats,

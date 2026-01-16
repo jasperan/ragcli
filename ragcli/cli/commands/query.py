@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
+from rich.prompt import Prompt
 from ragcli.core.rag_engine import ask_query
 from ragcli.config.config_manager import load_config
 from typing import List, Optional
@@ -13,7 +14,7 @@ console = Console()
 
 @app.command()
 def ask(
-    query: str,
+    query: Optional[str] = typer.Argument(None, help="Question to ask"),
     docs: Optional[List[str]] = typer.Option(None, "--docs", help="Comma-separated document IDs"),
     top_k: Optional[int] = typer.Option(None, "--top-k", help="Number of top results"),
     threshold: Optional[float] = typer.Option(None, "--threshold", "-t", help="Min similarity score"),
@@ -22,6 +23,10 @@ def ask(
 ):
     """Ask a question against the documents."""
     config = load_config()
+    
+    if query is None:
+        query = Prompt.ask("Enter your question")
+
     document_ids = docs.split(',') if docs else None
     
     try:
