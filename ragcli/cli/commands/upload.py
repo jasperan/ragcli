@@ -22,22 +22,30 @@ def add(
     config = load_config()
 
     if file_path is None:
-        from rich.prompt import Prompt
-        file_path = Prompt.ask("Enter path to file or directory")
+        from ragcli.utils.interactive import interactive_file_selector
+        selected_path = interactive_file_selector()
+        if selected_path is None:
+            console.print("[yellow]Operation cancelled.[/yellow]")
+            raise typer.Exit(0)
+        file_path = str(selected_path)
     
     path = Path(file_path)
     if not path.exists():
         console.print("[red]File or directory not found.[/red]")
         raise typer.Exit(1)
+
+    supported_formats = config['documents']['supported_formats']
     
     if path.is_dir() and recursive:
         # Walk directory, upload each file
         files = list(path.rglob("*"))
-        files = [f for f in files if f.is_file() and f.suffix.lstrip('.') in config['documents']['supported_formats']]
+        files = [f for f in files if f.is_file() and f.suffix.lstrip('.') in supported_formats]
         
         if not files:
-            console.print("[yellow]No supported documents found in directory.[/yellow]")
+            console.print(f"[yellow]No supported documents found in directory.[/yellow]")
+            console.print(f"Supported formats: [bold]{', '.join(supported_formats)}[/bold]")
             return
+
         
         console.print(f"   [bold #a855f7]Discovery:[/bold #a855f7] Identified [white]{len(files)}[/white] compatible document(s)\n")
         
@@ -65,6 +73,13 @@ def add(
     else:
         if path.is_dir():
             console.print("   [yellow]Recursive flag (-r) required for directory traversal.[/yellow]")
+            raise typer.Exit(1)
+
+        # Check if single file is supported
+        if path.suffix.lstrip('.') not in supported_formats:
+            console.print(f"[bold red]Error:[/bold red] File format '{path.suffix}' is not supported.")
+            console.print(f"Supported formats: [bold]{', '.join(supported_formats)}[/bold]")
+            console.print("See: https://docs.oracle.com/en/database/oracle/oracle-database/26/ccref/oracle-text-supported-document-formats.html")
             raise typer.Exit(1)
         
         try:
