@@ -197,14 +197,41 @@ def menu_db():
             input("\n   [Press Enter to return]")
 
 def menu_visualize():
+    from .commands.visualize import visual_query as visual_query_cmd
     print_header()
     console.print("   [bold #a855f7]Visual Analytics[/bold #a855f7]")
-    query = Prompt.ask("   Describe the chain to visualize")
-    try:
-        visualize_cmd(query=query, type="chain")
-    except Exception as e:
-        console.print(f"   [red]Error: {e}[/red]")
-    input("\n   [Press Enter to return]")
+    
+    choices = [
+        {"name": "Chain Visualization (Tokenization + Embedding)", "value": "1"},
+        {"name": "Visual Query (Similarity Search)", "value": "2"},
+        questionary.Separator(),
+        {"name": "Main Menu", "value": "0"}
+    ]
+    
+    choice = questionary.select(
+        "   Select visualization type:",
+        choices=choices,
+        style=GEMINI_STYLE,
+        use_arrow_keys=True,
+        pointer="›"
+    ).ask()
+    
+    if not choice or choice == "0":
+        return
+    elif choice == "1":
+        query = Prompt.ask("   Enter text to visualize")
+        try:
+            visualize_cmd(query=query, type="chain")
+        except Exception as e:
+            console.print(f"   [red]Error: {e}[/red]")
+        input("\n   [Press Enter to return]")
+    elif choice == "2":
+        query = Prompt.ask("   Enter query for similarity search")
+        try:
+            visual_query_cmd(query=query, top_k=5)
+        except Exception as e:
+            console.print(f"   [red]Error: {e}[/red]")
+        input("\n   [Press Enter to return]")
 
 
 def run_repl():

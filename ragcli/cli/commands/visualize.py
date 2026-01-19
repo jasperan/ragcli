@@ -97,5 +97,95 @@ def visualize(
             except: pass
 
 
+@app.command()
+def visual_query(
+    query: Optional[str] = None,
+    top_k: int = typer.Option(5, "--top-k", "-k", help="Number of closest results")
+):
+    """Visualize similarity search results against stored documents."""
+    from ragcli.database.vector_ops import search_similar
+    
+    config = load_config()
+    
+    if not query:
+        query = console.input("   Enter query text: ")
+        if not query:
+            rprint("[red]No input provided.[/red]")
+            raise typer.Exit(1)
+
+    client = OracleClient(config)
+    conn = None
+    
+    try:
+        conn = client.get_connection()
+        
+        # Step 1: Generate query embedding using the SAME model as documents
+        # Documents use Ollama's nomic-embed-text (768 dims), not Oracle's model
+        from ragcli.core.embedding import generate_embedding
+        
+        console.print("\n[bold cyan]═══ Query Embedding ═══[/bold cyan]")
+        embedding_model = config['ollama']['embedding_model']  # nomic-embed-text
+        query_vec = generate_embedding(query, embedding_model, config, conn=conn)
+        
+        if not query_vec:
+            console.print("[red]Failed to generate query embedding.[/red]")
+            raise typer.Exit(1)
+        
+        console.print(f"   [bold]Query:[/bold] \"{query}\"")
+        console.print(f"   [bold]Model:[/bold] {embedding_model}")
+        console.print(f"   [bold]Dimension:[/bold] {len(query_vec)}")
+        preview_vals = ", ".join([f"{v:.4f}" for v in query_vec[:5]])
+        console.print(f"   [bold]Vector:[/bold] [{preview_vals}, ...]")
+        
+        # Step 2: Similarity search
+        console.print("\n[bold cyan]═══ Closest Vectors (Similarity Search) ═══[/bold cyan]")
+        results = search_similar(conn, query_vec, top_k=top_k, min_similarity=0.0)
+        
+        if not results:
+            console.print("[yellow]No similar chunks found in the database.[/yellow]")
+            console.print("[dim]Tip: Upload documents first using 'Ingest: Document Upload'.[/dim]")
+        else:
+            console.print(f"   [dim]Found {len(results)} matches (ordered by similarity)[/dim]\n")
+            
+            result_table = Table(show_header=True, header_style="bold #a855f7", box=None)
+            result_table.add_column("Rank", style="dim", width=5)
+            result_table.add_column("Score", style="cyan", width=8)
+            result_table.add_column("Document", style="white", width=12)
+            result_table.add_column("Chunk Content", style="white", no_wrap=False)
+            
+            for i, res in enumerate(results, 1):
+                score_str = f"{res['similarity_score']:.4f}"
+                doc_short = res['document_id'][:8] + "..."
+                text_preview = res['text'][:100] + "..." if len(res['text']) > 100 else res['text']
+                result_table.add_row(f"#{i}", score_str, doc_short, text_preview)
+            
+            console.print(result_table)
+            
+            # Show embedding comparison for top result
+            if results[0].get('embedding'):
+                console.print("\n[bold cyan]═══ Top Match Vector Comparison ═══[/bold cyan]")
+                top_emb = results[0]['embedding']
+                top_preview = ", ".join([f"{v:.4f}" for v in top_emb[:5]])
+                console.print(f"   [bold]Query Vector:[/bold] [{preview_vals}, ...]")
+                console.print(f"   [bold]Match Vector:[/bold] [{top_preview}, ...]")
+                console.print(f"   [bold]Similarity:[/bold] {results[0]['similarity_score']:.4f}")
+        
+        console.print("\n[bold green]Visual query complete.[/bold green]")
+        
+    except ImportError:
+        console.print("[red]langchain-oracledb is required for Oracle AI visualization.[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Visual query error: {e}[/red]")
+        raise typer.Exit(1)
+    finally:
+        if conn:
+            try: conn.close()
+            except: pass
+        if client:
+            try: client.close()
+            except: pass
+
+
 if __name__ == "__main__":
     app()
