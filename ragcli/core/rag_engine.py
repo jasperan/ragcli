@@ -30,11 +30,10 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
     if file_size > config['documents']['max_file_size_mb'] * 1024 * 1024:
         raise ValueError("File too large")
     
-    # Get client early
     client = OracleClient(config)
-    conn = client.get_connection()
-
+    conn = None
     try:
+        conn = client.get_connection()
         # Process text
         text, ocr_used = preprocess_document(file_path, config, conn=conn)
         ocr_processed = 'Y' if ocr_used else 'N'
@@ -62,10 +61,10 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
                 embedding=emb, embedding_model=config['ollama']['embedding_model']
             )
     except Exception as e:
-        conn.rollback()
+        if conn: conn.rollback()
         raise e
     finally:
-        conn.close()
+        if conn: conn.close()
         client.close()
     
     total_time = time.perf_counter() - start_time
@@ -114,11 +113,10 @@ def upload_document_with_progress(file_path: str, config: Optional[dict] = None,
     if file_size > config['documents']['max_file_size_mb'] * 1024 * 1024:
         raise ValueError("File too large")
     
-    # Get client early for Oracle processing
     client = OracleClient(config)
-    conn = client.get_connection()
-    
+    conn = None
     try:
+        conn = client.get_connection()
         # Step 1: Process text
         if progress:
             process_task = progress.add_task(f"[cyan]Processing {path.name}...", total=100)
@@ -170,18 +168,13 @@ def upload_document_with_progress(file_path: str, config: Optional[dict] = None,
                     completed=chunk_progress,
                     description=f"[cyan]Embedding chunk {i+1}/{total_chunks}..."
                 )
+        conn.commit()
     except Exception as e:
-        conn.rollback()
+        if conn: conn.rollback()
         raise e
     finally:
-        # We handle closing at the end of function, but if exception raised above, we need to ensure close
-        # Ideally we'd use a context manager or explicit close here and re-raise
-        # effectively:
-        pass
-
-    conn.commit() # Ensure commits if not autocommitted in sub-functions (usually they are commit() inside vector_ops)
-    conn.close()
-    client.close()
+        if conn: conn.close()
+        client.close()
     
     if progress:
         progress.update(process_task, completed=100, description=f"[green]✓ {path.name} uploaded")

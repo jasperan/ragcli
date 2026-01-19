@@ -41,8 +41,10 @@ def browse(
         console.print(f"[red]Invalid table. Choose from: {', '.join(valid_tables)}[/red]")
         raise typer.Exit(1)
     
+    client = OracleClient(config)
+    conn = None
+    cursor = None
     try:
-        client = OracleClient(config)
         conn = client.get_connection()
         cursor = conn.cursor()
         
@@ -52,7 +54,6 @@ def browse(
         
         if total_count == 0:
             console.print(f"[yellow]Table {table} is empty[/yellow]")
-            client.close()
             return
         
         # Define columns for each table
@@ -119,13 +120,13 @@ def browse(
         if pagination_info:
             console.print("\n[dim]" + " | ".join(pagination_info) + "[/dim]")
 
-        cursor.close()
-        conn.close()
-        client.close()
-        
     except Exception as e:
         console.print(f"[red]Error browsing table: {e}[/red]")
         raise typer.Exit(1)
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+        client.close()
 
 
 @app.command()
@@ -141,8 +142,10 @@ def query(
         console.print("[red]Only SELECT queries are allowed for safety[/red]")
         raise typer.Exit(1)
     
+    client = OracleClient(config)
+    conn = None
+    cursor = None
     try:
-        client = OracleClient(config)
         conn = client.get_connection()
         cursor = conn.cursor()
         
@@ -151,9 +154,6 @@ def query(
         
         if not rows:
             console.print("[yellow]Query returned no results[/yellow]")
-            cursor.close()
-            conn.close()
-            client.close()
             return
         
         # Get column names
@@ -187,13 +187,13 @@ def query(
             writer.writerow(columns)
             writer.writerows(rows)
 
-        cursor.close()
-        conn.close()
-        client.close()
-        
     except Exception as e:
         console.print(f"[red]Query execution failed: {e}[/red]")
         raise typer.Exit(1)
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+        client.close()
 
 
 @app.command()
@@ -201,8 +201,10 @@ def stats():
     """Show database statistics and table sizes."""
     config = load_config()
     
+    client = OracleClient(config)
+    conn = None
+    cursor = None
     try:
-        client = OracleClient(config)
         conn = client.get_connection()
         cursor = conn.cursor()
         
@@ -234,13 +236,13 @@ def stats():
                 stats_table.add_row(table, "N/A", "Table may not exist")
         
         console.print(stats_table)
-        cursor.close()
-        conn.close()
-        client.close()
-        
     except Exception as e:
         console.print(f"[red]Error getting stats: {e}[/red]")
         raise typer.Exit(1)
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+        client.close()
 
 
 if __name__ == "__main__":

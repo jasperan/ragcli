@@ -14,15 +14,21 @@ console = Console()
 def list_documents(config, format='table', verbose=False):
     """Helper to list documents."""
     client = OracleClient(config)
-    conn = client.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT document_id, filename, file_format, upload_timestamp, chunk_count, total_tokens
-        FROM DOCUMENTS
-        ORDER BY upload_timestamp DESC
-    """)
-    rows = cursor.fetchall()
-    client.close()
+    conn = None
+    cursor = None
+    try:
+        conn = client.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT document_id, filename, file_format, upload_timestamp, chunk_count, total_tokens
+            FROM DOCUMENTS
+            ORDER BY upload_timestamp DESC
+        """)
+        rows = cursor.fetchall()
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+        client.close()
     
     if format == 'table':
         table = Table(
@@ -65,9 +71,11 @@ def delete(doc_id: str):
     """Delete a document by ID."""
     config = load_config()
     client = OracleClient(config)
-    conn = client.get_connection()
-    cursor = conn.cursor()
+    conn = None
+    cursor = None
     try:
+        conn = client.get_connection()
+        cursor = conn.cursor()
         cursor.execute("DELETE FROM DOCUMENTS WHERE document_id = :doc_id", {'doc_id': doc_id})
         conn.commit()
         if cursor.rowcount > 0:
@@ -76,9 +84,11 @@ def delete(doc_id: str):
             rprint(typer.style(f"Document {doc_id} not found.", fg=typer.colors.YELLOW))
     except Exception as e:
         rprint(typer.style(f"Delete failed: {e}", fg=typer.colors.RED))
-        conn.rollback()
+        if conn: conn.rollback()
         raise typer.Exit(1)
     finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
         client.close()
 
 if __name__ == "__main__":

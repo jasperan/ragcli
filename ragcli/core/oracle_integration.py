@@ -80,7 +80,7 @@ class OracleIntegrationManager:
     def generate_embeddings(self, texts: List[str], provider: str = "database", params: Dict = None, proxy: str = None) -> List[List[float]]:
         """Generate embeddings using OracleEmbeddings."""
         if params is None:
-            params = {"provider": provider, "model": "demo_model"} # Default fallback
+            params = {"provider": "database", "model": "ALL_MINILM_L12_V2"} # Confirmed existing model
             
         embedder = OracleEmbeddings(conn=self.conn, params=params, proxy=proxy)
         return embedder.embed_documents(texts)

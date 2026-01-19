@@ -3,6 +3,7 @@
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 from rich import print as rprint
 from rich.prompt import Prompt
 from ragcli.core.rag_engine import ask_query

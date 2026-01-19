@@ -40,7 +40,13 @@ def loader(file_path: str):
     except Exception as e:
         console.print(f"[red]Loader failed: {e}[/red]")
     finally:
-        client.close()
+        if conn: 
+            try: conn.close()
+            except: pass
+        if client:
+            try: client.close()
+            except: pass
+        del manager
 
 @app.command()
 def splitter(text: str = typer.Option(None, "--text", help="Text to split"), 
@@ -68,7 +74,13 @@ def splitter(text: str = typer.Option(None, "--text", help="Text to split"),
     except Exception as e:
         console.print(f"[red]Splitter failed: {e}[/red]")
     finally:
-        client.close()
+        if conn:
+            try: conn.close()
+            except: pass
+        if client:
+            try: client.close()
+            except: pass
+        del manager
 
 @app.command()
 def summary(text: str):
@@ -81,7 +93,13 @@ def summary(text: str):
     except Exception as e:
         console.print(f"[red]Summary generation failed: {e}[/red]")
     finally:
-        client.close()
+        if conn:
+            try: conn.close()
+            except: pass
+        if client:
+            try: client.close()
+            except: pass
+        del manager
 
 @app.command()
 def embedding(text: str):
@@ -99,7 +117,13 @@ def embedding(text: str):
     except Exception as e:
         console.print(f"[red]Embedding generation failed: {e}[/red]")
     finally:
-        client.close()
+        if conn:
+            try: conn.close()
+            except: pass
+        if client:
+            try: client.close()
+            except: pass
+        del manager
 
 @app.command()
 def all():
