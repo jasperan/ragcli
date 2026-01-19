@@ -51,7 +51,7 @@ class ChunkResult(BaseModel):
     document_id: str
     text: str
     similarity_score: float
-    chunk_index: int
+    chunk_number: int
     embedding: Optional[List[float]] = None
 
 

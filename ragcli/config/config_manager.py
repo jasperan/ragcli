@@ -65,7 +65,7 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     if 'oracle' in loaded_config and 'password' in loaded_config['oracle']:
         oracle = loaded_config['oracle']
         if isinstance(oracle['password'], str) and oracle['password'] and not oracle['password'].startswith('${'):
-            print("WARNING: Oracle password is hardcoded in config. Consider using environment variables.")
+            pass # Suppressed security warning per user request
 
     # Substitute env vars
     substituted = parse_env_vars(loaded_config)

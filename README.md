@@ -33,18 +33,17 @@ See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for setup
 
 ## Installation
 
-### From Source (Recommended for Development)
+### From Source (Recommended)
 ```bash
 git clone https://github.com/jasperan/ragcli.git
 cd ragcli
 pip install -r requirements.txt
-# Or editable: pip install -e .
 ```
 
-### PyPI Package (Upcoming)
+### Usage
+Run the application directly using the root entry point:
 ```bash
-pip install ragcli
-ragcli config init  # Creates config.yaml from example
+python ragcli.py
 ```
 
 ### Docker Compose (Recommended)
@@ -74,13 +73,6 @@ docker build -t ragcli .
 docker run -d -p 8000:8000 -v $(pwd)/config.yaml:/app/config.yaml ragcli
 ```
 
-### Standalone Binary (via PyInstaller)
-```bash
-pip install pyinstaller
-pyinstaller --onefile ragcli/cli/main.py --name ragcli
-./ragcli --help
-```
-
 ## Quick Start
 1. **Configure**:
    ```bash
@@ -91,12 +83,12 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 
 2. **Initialize Database** (run once):
    ```bash
-   ragcli init-db  # Creates tables and indexes in Oracle if they don't exist
+   python ragcli.py db init  # Creates tables and indexes in Oracle
    ```
 
 3. **Launch CLI (REPL)**:
    ```bash
-   ragcli
+   python ragcli.py
    ```
    Now features an interactive menu system:
    ```
@@ -119,7 +111,7 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 
 4. **Launch API Server**:
    ```bash
-   ragcli api --port 8000
+   python ragcli.py api --port 8000
    ```
    - API docs: http://localhost:8000/docs
    - Connect with AnythingLLM or use API directly
@@ -135,21 +127,21 @@ pyinstaller --onefile ragcli/cli/main.py --name ragcli
 
 6. **Functional CLI Example**:
    ```bash
-   ragcli upload path/to/doc.pdf
-   ragcli ask "Summarize the document" --show-chain
+   python ragcli.py upload path/to/doc.pdf
+   python ragcli.py ask "Summarize the document" --show-chain
    ```
 
 ## CLI Usage
-- **REPL Mode**: `ragcli` → Interactive shell with tab completion, history.
-  - Commands: `upload <path>`, `ask <query>`, `models list`, `db browse`, `status --verbose`, `api`, `exit`.
-- **Functional Mode**: `ragcli <command> [options]`.
-  - `ragcli upload --recursive folder/` - Upload with progress bars
-  - `ragcli ask "query" --docs doc1,doc2 --top-k 3`
-  - `ragcli models list` - Show all available Ollama models
-  - `ragcli status --verbose` - Detailed vector statistics
-  - `ragcli db browse --table DOCUMENTS` - Browse database tables
-  - `ragcli db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
-  - See `ragcli --help` for full options.
+- **REPL Mode**: `python ragcli.py` → Interactive shell with arrow-key navigation.
+  - Commands: `Ingest`, `Inquiry`, `Knowledge`, `Insight`, etc.
+- **Functional Mode**: `python ragcli.py <command> [options]`.
+  - `python ragcli.py upload --recursive folder/` - Upload with progress bars
+  - `python ragcli.py ask "query" --docs doc1,doc2 --top-k 3`
+  - `python ragcli.py models list` - Show all available Ollama models
+  - `python ragcli.py status --verbose` - Detailed vector statistics
+  - `python ragcli.py db browse --table DOCUMENTS` - Browse database tables
+  - `python ragcli.py db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
+  - See `python ragcli.py --help` for full options.
 
 ## Premium Web Interface
 The project includes a stunning, minimalist frontend inspired by Google AI Studio.
@@ -204,12 +196,13 @@ Safe loading handles env vars (e.g., `${ORACLE_PASSWORD}`) and validation.
 ### Enhanced Progress Tracking
 Upload documents with real-time progress bars showing:
 - File processing status
-- Chunking progress
-- Embedding generation with ETA
-- Database insertion progress
+-   File processing status
+-   Chunking progress
+-   Embedding generation with ETA
+-   Database insertion progress
 
 ```bash
-ragcli upload large_document.pdf
+python ragcli.py upload large_document.pdf
 # ... progress bar animation ...
 # Then displays summary:
 # ╭───────────────────────────────────────────────────── Upload Summary ─────────────────────────────────────────────────────╮
@@ -225,7 +218,7 @@ ragcli upload large_document.pdf
 
 ### Detailed Status & Monitoring
 ```bash
-ragcli status --verbose
+python ragcli.py status --verbose
 # ragcli Status                                                        
 # ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ Component  ┃ Status       ┃ Details                                                                                      ┃
@@ -242,7 +235,7 @@ ragcli status --verbose
 
 ### Interactive Database Browser
 ```bash
-ragcli db browse --table DOCUMENTS --limit 20
+python ragcli.py db browse --table DOCUMENTS --limit 20
 # DOCUMENTS (Rows 1-5 of 6)                                                  
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ ID                               ┃ Filename          ┃ Format ┃ Size (KB) ┃ Chunks ┃ Tokens ┃ Uploaded                   ┃
@@ -268,6 +261,24 @@ ragcli models list
 ragcli models validate                # Validate configured models
 ragcli models check llama3            # Check if specific model exists
 ```
+
+### Oracle AI Vector Search Integration
+ragcli now integrates `langchain-oracledb` for enhanced document processing:
+- **OracleTextSplitter**: Database-side chunking.
+- **OracleDocLoader**: Load documents using Oracle's loaders.
+- **OracleEmbeddings**: Generate embeddings within the database (using loaded ONNX models or external providers).
+- **OracleSummary**: Generate summaries using database tools.
+
+#### Testing Oracle Integrations
+A dedicated command group `oracle-test` is available to verify these features:
+```bash
+python ragcli.py oracle-test all                 # Run full test suite
+python ragcli.py oracle-test loader /path/to/doc # Test document loader
+python ragcli.py oracle-test splitter --text "..." # Test text splitter
+python ragcli.py oracle-test summary "..."       # Test summarization
+python ragcli.py oracle-test embedding "..."     # Test embedding generation
+```
+You can also access the **Test Suite** from the interactive REPL menu (Option 7).
 
 ## Troubleshooting
 - **Ollama unreachable**: Run `ollama serve` and check endpoint. Use `ragcli models list` to verify.

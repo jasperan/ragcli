@@ -25,16 +25,25 @@ def list_documents(config, format='table', verbose=False):
     client.close()
     
     if format == 'table':
-        table = Table(title="Documents")
-        table.add_column("ID", style="cyan")
-        table.add_column("Filename")
-        table.add_column("Format")
-        table.add_column("Uploaded")
-        table.add_column("Chunks", justify="right")
-        table.add_column("Tokens", justify="right")
+        table = Table(
+            title="   Managed Intelligence Assets", 
+            show_header=True,
+            box=None,
+            header_style="bold #a855f7",
+            title_style="bold white",
+            padding=(0, 2)
+        )
+        table.add_column("ID", style="dim white")
+        table.add_column("Filename", style="#9333ea")
+        table.add_column("Format", style="#a855f7")
+        table.add_column("Uploaded", style="dim white")
+        table.add_column("Chunks", justify="right", style="#9333ea")
+        table.add_column("Tokens", justify="right", style="#a855f7")
         
         for row in rows:
-            table.add_row(row[0], row[1], row[2], str(row[3]), str(row[4]), str(row[5]))
+            # Shorten ID for display
+            display_id = row[0][:8] + "..." if len(row[0]) > 10 else row[0]
+            table.add_row(display_id, row[1], row[2], str(row[3]), str(row[4]), str(row[5]))
         console.print(table)
     else:
         # JSON or other

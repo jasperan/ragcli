@@ -217,7 +217,7 @@ async def query_endpoint(request: QueryRequest):
                 document_id=chunk['document_id'],
                 text=chunk['text'],
                 similarity_score=chunk['similarity_score'],
-                chunk_index=chunk['chunk_index'],
+                chunk_number=chunk['chunk_number'],
                 embedding=chunk.get('embedding') if request.include_embeddings else None
             )
             for chunk in result['results']

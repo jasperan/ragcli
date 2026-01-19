@@ -41,9 +41,5 @@ setup(
             "isort>=5.12.0",
         ],
     },
-    entry_points={
-        "console_scripts": [
-            "ragcli=ragcli.cli.main:main",
-        ],
-    },
+    entry_points={},
 )

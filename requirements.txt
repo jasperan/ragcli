@@ -2,6 +2,7 @@
 typer
 click
 rich
+questionary
 oracledb
 pyyaml
 aiohttp
@@ -9,6 +10,7 @@ requests
 plotly
 matplotlib
 langchain-community
+langchain-oracledb
 tiktoken
 umap-learn
 scikit-learn

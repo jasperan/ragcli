@@ -6,12 +6,13 @@ from typing import List, Dict, Any, Optional
 from .ocr_processor import pdf_to_markdown
 
 
-def preprocess_document(file_path: str, config: dict) -> tuple[str, bool]:
+def preprocess_document(file_path: str, config: dict, conn=None) -> tuple[str, bool]:
     """Preprocess document to extract text and metadata.
 
     Args:
         file_path: Path to the document file
         config: Configuration dictionary
+        conn: Optional Oracle DB connection for OracleDocLoader
 
     Returns:
         tuple: (extracted_text, ocr_processed_flag)
@@ -23,6 +24,22 @@ def preprocess_document(file_path: str, config: dict) -> tuple[str, bool]:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Check for Oracle Loader
+    use_oracle_loader = config.get('documents', {}).get('use_oracle_loader', False)
+    if conn and use_oracle_loader:
+        try:
+            from .oracle_integration import OracleIntegrationManager
+            manager = OracleIntegrationManager(conn)
+            # OracleDocLoader loading local file
+            docs = manager.load_document(file_path)
+            if docs:
+                # Combine all pages/docs into one text
+                text = "\n".join([doc.page_content for doc in docs])
+                return text, False # Assuming Oracle Loader handles OCR if needed but returns text, or we set OCR flag to False/True based on what it did.
+                # If Oracle Loader fails or is not appropriate, fallback.
+        except Exception as e:
+            pass # Fallback
 
     file_format = path.suffix.lstrip('.').lower()
     if file_format not in config['documents']['supported_formats']:
@@ -46,17 +63,59 @@ def preprocess_document(file_path: str, config: dict) -> tuple[str, bool]:
     return text, ocr_processed
 
 
-def chunk_text(text: str, config: dict, progress_callback=None) -> List[Dict[str, Any]]:
+def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> List[Dict[str, Any]]:
     """Chunk text into smaller pieces with token-based splitting.
 
     Args:
         text: Full document text
         config: Configuration dictionary
         progress_callback: Optional callback function for progress updates
+        conn: Optional Oracle DB connection for OracleTextSplitter
 
     Returns:
         List of chunks with metadata: [{'text': str, 'token_count': int, 'char_count': int}, ...]
     """
+    # Check if we should use Oracle splitter
+    use_oracle_splitter = config.get('documents', {}).get('use_oracle_splitter', False)
+    
+    if conn and use_oracle_splitter:
+        try:
+            from .oracle_integration import OracleIntegrationManager
+            manager = OracleIntegrationManager(conn)
+            
+            # Oracle splitter params from config
+            params = config.get('documents', {}).get('oracle_splitter_params', {"normalize": "all"})
+            
+            # Use Oracle splitter
+            chunks_text = manager.split_text(text=text, params=params)
+            
+            # Post-process chunks to match expected format
+            processed_chunks = []
+            
+            # We still need token counts for metadata
+            try:
+                enc = tiktoken.get_encoding("cl100k_base")
+            except:
+                enc = None
+                
+            for chunk_str in chunks_text:
+                tokens = len(enc.encode(chunk_str)) if enc else len(chunk_str.split())
+                processed_chunks.append({
+                    'text': chunk_str,
+                    'token_count': tokens,
+                    'char_count': len(chunk_str)
+                })
+                
+            if progress_callback:
+                progress_callback(len(text), len(text))
+                
+            return processed_chunks
+            
+        except Exception as e:
+            # Fallback to default if Oracle splitter fails
+            # logger.warning(f"Oracle splitter failed, falling back to local: {e}")
+            pass
+
     # Use tiktoken for accurate token counting (GPT-based)
     try:
         enc = tiktoken.get_encoding("cl100k_base")  # GPT-3.5/4 encoding
@@ -106,12 +165,6 @@ def chunk_text(text: str, config: dict, progress_callback=None) -> List[Dict[str
             # The simplified logic above 'start += (chunk_size - overlap_tokens)' is better
             pass
             
-        # Re-evaluating: 'start += (chunk_size - overlap_tokens)' is the standard way.
-        # But if we want to mimic the previous intent of 'end - overlap':
-        # start = end - overlap_tokens
-        # if start < 0: start = end # No overlap if document is too small
-        # wait, if start < previous_start + 1, we must force it forward.
-        
     return chunks
 
 

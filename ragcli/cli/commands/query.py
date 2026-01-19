@@ -32,32 +32,45 @@ def ask(
     try:
         result = ask_query(query, document_ids, top_k, threshold, config)
         
-        # Response
-        rprint(typer.style("Answer:", bold=True))
-        rprint(result['response'])
+        # Premium Response Presentation
+        console.print("\n   [bold #a855f7]R E S P O N S E[/bold #a855f7]")
+        console.print(Panel(
+            result['response'],
+            border_style="#6b21a8",
+            padding=(1, 2),
+            subtitle="[dim white]Source: Contextual Intelligence Layer[/dim white]"
+        ))
         
         # Results
         if show_chain or verbose:
-            table = Table(title="Retrieval Results")
-            table.add_column("Document ID", style="cyan")
-            table.add_column("Chunk", justify="right")
-            table.add_column("Similarity", justify="right")
-            table.add_column("Excerpt")
+            console.print("\n   [bold #a855f7]R E T R I E V A L   C H A I N[/bold #a855f7]")
+            table = Table(
+                show_header=True,
+                box=None,
+                header_style="bold #a855f7",
+                title_style="bold white",
+                padding=(0, 2)
+            )
+            table.add_column("Asset ID", style="dim white")
+            table.add_column("Chunk", justify="right", style="#9333ea")
+            table.add_column("Score", justify="right", style="#4caf50")
+            table.add_column("Snippet", style="italic white")
             
             for r in result['results']:
+                display_id = r['document_id'][:8] + "..."
                 table.add_row(
-                    r['document_id'],
+                    display_id,
                     str(r['chunk_number']),
                     f"{r['similarity_score']:.3f}",
-                    r['text']
+                    r['text'][:100].replace("\n", " ") + "..."
                 )
             console.print(table)
         
         # Metrics
         if verbose:
-            rprint(typer.style("Metrics:", bold=True))
+            console.print("\n   [bold white]Operational Metrics[/bold white]")
             for k, v in result['metrics'].items():
-                rprint(f"{k}: {v}")
+                console.print(f"      [dim white]{k}:[/dim white] [#a855f7]{v}[/#a855f7]")
                 
     except Exception as e:
         rprint(typer.style(f"Query failed: {e}", fg=typer.colors.RED))

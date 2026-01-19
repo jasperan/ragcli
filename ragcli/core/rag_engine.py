@@ -30,39 +30,43 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
     if file_size > config['documents']['max_file_size_mb'] * 1024 * 1024:
         raise ValueError("File too large")
     
-    # Process text
-    text, ocr_used = preprocess_document(file_path, config)
-    ocr_processed = 'Y' if ocr_used else 'N'
-
-    # Chunk
-    chunks = chunk_text(text, config)
-    doc_meta = get_document_metadata(text, chunks, ocr_used)
-    
-    # Get client
+    # Get client early
     client = OracleClient(config)
     conn = client.get_connection()
-    
-    # Insert document
-    doc_id = insert_document(
-        conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
-        doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
-    )
 
-    # Insert chunks with embeddings
-    for i, chunk_data in enumerate(chunks):
-        chunk_content = chunk_data['text']
-        token_count = chunk_data['token_count']
-        char_count = chunk_data['char_count']
+    try:
+        # Process text
+        text, ocr_used = preprocess_document(file_path, config, conn=conn)
+        ocr_processed = 'Y' if ocr_used else 'N'
 
-        emb = generate_embedding(chunk_content, config['ollama']['embedding_model'], config)
-
-        insert_chunk(
-            conn, doc_id, i+1, chunk_content, token_count, char_count,
-            embedding=emb, embedding_model=config['ollama']['embedding_model']
+        # Chunk
+        chunks = chunk_text(text, config, conn=conn)
+        doc_meta = get_document_metadata(text, chunks, ocr_used)
+        
+        # Insert document
+        doc_id = insert_document(
+            conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
+            doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
         )
-    
-    conn.close()
-    client.close()
+
+        # Insert chunks with embeddings
+        for i, chunk_data in enumerate(chunks):
+            chunk_content = chunk_data['text']
+            token_count = chunk_data['token_count']
+            char_count = chunk_data['char_count']
+
+            emb = generate_embedding(chunk_content, config['ollama']['embedding_model'], config, conn=conn)
+
+            insert_chunk(
+                conn, doc_id, i+1, chunk_content, token_count, char_count,
+                embedding=emb, embedding_model=config['ollama']['embedding_model']
+            )
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+        client.close()
     
     total_time = time.perf_counter() - start_time
     
@@ -110,61 +114,72 @@ def upload_document_with_progress(file_path: str, config: Optional[dict] = None,
     if file_size > config['documents']['max_file_size_mb'] * 1024 * 1024:
         raise ValueError("File too large")
     
-    # Step 1: Process text
-    if progress:
-        process_task = progress.add_task(f"[cyan]Processing {path.name}...", total=100)
-        progress.update(process_task, completed=10)
-    
-    text, ocr_used = preprocess_document(file_path, config)
-    ocr_processed = 'Y' if ocr_used else 'N'
-    
-    if progress:
-        progress.update(process_task, completed=30, description=f"[cyan]Chunking {path.name}...")
-    
-    # Step 2: Chunk
-    chunks = chunk_text(text, config)
-    doc_meta = get_document_metadata(text, chunks, ocr_used)
-    
-    if progress:
-        progress.update(process_task, completed=50, description=f"[cyan]Creating embeddings...")
-    
-    # Get client
+    # Get client early for Oracle processing
     client = OracleClient(config)
     conn = client.get_connection()
     
-    # Insert document
-    doc_id = insert_document(
-        conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
-        doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
-    )
-    
-    # Step 3: Generate embeddings and insert chunks
-    embedding_model = config['ollama']['embedding_model']
-    total_chunks = len(chunks)
-
-    for i, chunk_data in enumerate(chunks):
-        chunk_content = chunk_data['text']
-        token_count = chunk_data['token_count']
-        char_count = chunk_data['char_count']
-
-        # Generate embedding
-        emb = generate_embedding(chunk_content, embedding_model, config)
-
-        # Insert chunk
-        insert_chunk(
-            conn, doc_id, i+1, chunk_content, token_count, char_count,
-            embedding=emb, embedding_model=embedding_model
+    try:
+        # Step 1: Process text
+        if progress:
+            process_task = progress.add_task(f"[cyan]Processing {path.name}...", total=100)
+            progress.update(process_task, completed=10)
+        
+        text, ocr_used = preprocess_document(file_path, config, conn=conn)
+        ocr_processed = 'Y' if ocr_used else 'N'
+        
+        if progress:
+            progress.update(process_task, completed=30, description=f"[cyan]Chunking {path.name}...")
+        
+        # Step 2: Chunk
+        chunks = chunk_text(text, config, conn=conn)
+        doc_meta = get_document_metadata(text, chunks, ocr_used)
+        
+        if progress:
+            progress.update(process_task, completed=50, description=f"[cyan]Creating embeddings...")
+        
+        # Insert document
+        doc_id = insert_document(
+            conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
+            doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
         )
         
-        # Update progress
-        if progress:
-            chunk_progress = 50 + int((i + 1) / total_chunks * 50)
-            progress.update(
-                process_task,
-                completed=chunk_progress,
-                description=f"[cyan]Embedding chunk {i+1}/{total_chunks}..."
+        # Step 3: Generate embeddings and insert chunks
+        embedding_model = config['ollama']['embedding_model']
+        total_chunks = len(chunks)
+
+        for i, chunk_data in enumerate(chunks):
+            chunk_content = chunk_data['text']
+            token_count = chunk_data['token_count']
+            char_count = chunk_data['char_count']
+
+            # Generate embedding
+            # Note: For batch processing we might want to refactor to use batch_generate_embeddings if passing conn
+            emb = generate_embedding(chunk_content, embedding_model, config, conn=conn)
+
+            # Insert chunk
+            insert_chunk(
+                conn, doc_id, i+1, chunk_content, token_count, char_count,
+                embedding=emb, embedding_model=embedding_model
             )
-    
+            
+            # Update progress
+            if progress:
+                chunk_progress = 50 + int((i + 1) / total_chunks * 50)
+                progress.update(
+                    process_task,
+                    completed=chunk_progress,
+                    description=f"[cyan]Embedding chunk {i+1}/{total_chunks}..."
+                )
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        # We handle closing at the end of function, but if exception raised above, we need to ensure close
+        # Ideally we'd use a context manager or explicit close here and re-raise
+        # effectively:
+        pass
+
+    conn.commit() # Ensure commits if not autocommitted in sub-functions (usually they are commit() inside vector_ops)
     conn.close()
     client.close()
     

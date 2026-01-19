@@ -39,39 +39,39 @@ def add(
             console.print("[yellow]No supported documents found in directory.[/yellow]")
             return
         
-        console.print(f"[cyan]Found {len(files)} document(s) to upload[/cyan]\n")
+        console.print(f"   [bold #a855f7]Discovery:[/bold #a855f7] Identified [white]{len(files)}[/white] compatible document(s)\n")
         
         with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
+            SpinnerColumn(style="bold #a855f7"),
+            TextColumn("   [progress.description]{task.description}"),
+            BarColumn(bar_width=40, style="grey30", complete_style="#a855f7"),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeRemainingColumn(),
             console=console
         ) as progress:
-            overall_task = progress.add_task(f"[cyan]Uploading files...", total=len(files))
+            overall_task = progress.add_task(f"[dim white]Orchestrating batch upload...[/dim white]", total=len(files))
             
             for file in files:
                 try:
                     metadata = upload_document_with_progress(str(file), config, progress)
                     if verbose:
-                        console.print(f"[green]✓[/green] {file.name}: {metadata['document_id']}")
+                        console.print(f"   [bold #4caf50]✓[/bold #4caf50] [dim]{file.name}[/dim]")
                 except Exception as e:
-                    console.print(f"[red]✗[/red] {file.name}: {e}")
+                    console.print(f"   [bold red]✗[/bold red] [dim]{file.name}: {e}[/dim]")
                 progress.advance(overall_task)
         
-        console.print("\n[bold green]Batch upload complete![/bold green]")
+        console.print("\n   [bold #a855f7]Audit Complete:[/bold #a855f7] [white]Batch ingestion successful.[/white]")
         
     else:
         if path.is_dir():
-            console.print("[yellow]Use --recursive for directories.[/yellow]")
+            console.print("   [yellow]Recursive flag (-r) required for directory traversal.[/yellow]")
             raise typer.Exit(1)
         
         try:
             with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
+                SpinnerColumn(style="bold #a855f7"),
+                TextColumn("   [progress.description]{task.description}"),
+                BarColumn(bar_width=40, style="grey30", complete_style="#a855f7"),
                 TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
                 TimeRemainingColumn(),
                 console=console
@@ -79,22 +79,26 @@ def add(
                 metadata = upload_document_with_progress(str(path), config, progress)
             
             # Show success summary
-            console.print("\n[bold green]✓ Upload successful![/bold green]")
             summary = f"""
-Document ID: [cyan]{metadata['document_id']}[/cyan]
-Filename: [cyan]{metadata['filename']}[/cyan]
-Format: [cyan]{metadata['file_format'].upper()}[/cyan]
-Size: [cyan]{metadata['file_size_bytes'] / 1024:.2f} KB[/cyan]
-Chunks: [cyan]{metadata['chunk_count']}[/cyan]
-Total Tokens: [cyan]{metadata['total_tokens']}[/cyan]
-Upload Time: [cyan]{metadata['upload_time_ms']:.0f} ms[/cyan]
+[dim white]Asset ID:[/dim white]      [#9333ea]{metadata['document_id']}[/#9333ea]
+[dim white]Filename:[/dim white]      [white]{metadata['filename']}[/white]
+[dim white]Format:[/dim white]        [#a855f7]{metadata['file_format'].upper()}[/#a855f7]
+[dim white]Size:[/dim white]          [white]{metadata['file_size_bytes'] / 1024:.2f} KB[/white]
+[dim white]Granularity:[/dim white]   [white]{metadata['chunk_count']} chunks[/white]
+[dim white]Token Count:[/dim white]   [white]{metadata['total_tokens']}[/white]
+[dim white]Latency:[/dim white]       [#a855f7]{metadata['upload_time_ms']:.0f} ms[/#a855f7]
             """
-            console.print(Panel(summary.strip(), title="Upload Summary", border_style="green"))
+            console.print(Panel(
+                summary.strip(), 
+                title="[bold white]   Ingestion Audit Successful   [/bold white]", 
+                border_style="#6b21a8",
+                padding=(1, 2)
+            ))
             
             if verbose:
-                console.print("\n[bold]Full Metadata:[/bold]")
+                console.print("\n   [bold white]Extended Metadata:[/bold white]")
                 for k, v in metadata.items():
-                    console.print(f"  {k}: {v}")
+                    console.print(f"      [dim white]{k}:[/dim white] [#a855f7]{v}[/#a855f7]")
                     
         except Exception as e:
             console.print(f"[bold red]✗ Upload failed:[/bold red] {e}")

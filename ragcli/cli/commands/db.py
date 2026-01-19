@@ -67,10 +67,10 @@ def browse(
             columns = ["ID", "Filename", "Format", "Size (KB)", "Chunks", "Tokens", "Uploaded"]
         elif table == "CHUNKS":
             query = f"""
-                SELECT chunk_id, document_id, chunk_index, token_count, 
+                SELECT chunk_id, document_id, chunk_number, token_count, 
                        SUBSTR(chunk_text, 1, 50) as preview
                 FROM {table}
-                ORDER BY document_id, chunk_index
+                ORDER BY document_id, chunk_number
                 OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY
             """
             columns = ["Chunk ID", "Document ID", "Index", "Tokens", "Preview"]
