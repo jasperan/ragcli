@@ -36,7 +36,12 @@ vector_index:
   index_type: "HNSW"             # Options: HNSW, IVF_FLAT, HYBRID
   dimension: 768                 # Embedding dimension
   m: 16                          # HNSW parameter: connections per node
-  ef_construction: 200            # HNSW parameter: construction effort
+  ef_construction: 200           # HNSW parameter: construction effort
+  # Oracle in-database embeddings using langchain-oracledb
+  use_oracle_embeddings: false   # Set true to use OracleEmbeddings instead of Ollama
+  oracle_embedding_params:       # Params when use_oracle_embeddings is true
+    provider: "database"         # database, ocigenai, huggingface, openai, etc.
+    model: "ALL_MINILM_L12_V2"   # ONNX model loaded in Oracle DB
 
 # RAG Query Configuration
 rag:

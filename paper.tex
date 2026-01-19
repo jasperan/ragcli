@@ -36,7 +36,7 @@ tabsize=2
 
 \lstset{style=mystyle}
 
-\title{\textbf{RagCLI: A High-Performance Command Line Interface for\\Retrieval Augmented Generation with Oracle Database 23ai}}
+\title{\textbf{RagCLI: A High-Performance Command Line Interface for\\Retrieval Augmented Generation with Oracle Database 26ai}}
 
 \author{Nacho Martínez (jasperan)}
 \affil{Data Scientist Advocate at Oracle \\ \url{https://github.com/jasperan}}
@@ -48,7 +48,7 @@ tabsize=2
 \maketitle
 
 \begin{abstract}
-I introduce \texttt{ragcli}, a full-featured, high-performance Command Line Interface (CLI) for Retrieval Augmented Generation (RAG). By utilizing the AI Vector Search capabilities within Oracle Database 23ai, combined with the highly-efficient Gemma 3 270M language model via Ollama, \texttt{ragcli} allows users to ingest documents locally; perform fast semantic searches based on those documents; answer questions based on the searched information; all within a single CLI. 
+I introduce \texttt{ragcli}, a full-featured, high-performance Command Line Interface (CLI) for Retrieval Augmented Generation (RAG). By utilizing the AI Vector Search capabilities within Oracle Database 26ai, combined with the highly-efficient Gemma 3 270M language model via Ollama, \texttt{ragcli} allows users to ingest documents locally; perform fast semantic searches based on those documents; answer questions based on the searched information; all within a single CLI. 
 Here, I detail my system architecture and motivate \texttt{ragcli}; then provide performance benchmarks to demonstrate the efficacy of \texttt{ragcli}.
 \end{abstract}
 
@@ -58,7 +58,7 @@ Retrieval Augmented Generation (RAG) has become one of the top techniques used t
 
 \texttt{ragcli} meets this need by developing a CLI-first RAG solution that integrates:
 \begin{itemize}
-\item \textbf{Oracle Database 23ai}: As the native vector storage for \texttt{ragcli}. I also selected it because of its ability to combine relational data with vector data.
+\item \textbf{Oracle Database 26ai}: As the native vector storage for \texttt{ragcli}. I also selected it because of its ability to combine relational data with vector data.
 \item \textbf{Ollama}: For use as a local inference engine to utilize the highly-quantized, highly-efficient models.
 \item \textbf{Gemma 3}: The 270M variant of the Gemma 3 model was chosen due to its combination of high-speed inference and low-latency.
 \end{itemize}
@@ -82,7 +82,7 @@ I structured the system as a pipeline consisting of three primary layers: Ingest
 
 \subsection{Ingestion Layer}
 
-Text documents are read, optionally processed through optical character recognition (OCR) if the input is a scanned image, and then split into manageable-sized pieces called chunks. I applied a fixed-size sliding window chunking method with a variable amount of overlap (which defaults to 10\%) to the text stream. Each chunk is then converted into an embedding using \texttt{nomic-embed-text} and stored in the Oracle Database 23ai.
+Text documents are read, optionally processed through optical character recognition (OCR) if the input is a scanned image, and then split into manageable-sized pieces called chunks. I applied a fixed-size sliding window chunking method with a variable amount of overlap (which defaults to 10\%) to the text stream. Each chunk is then converted into an embedding using \texttt{nomic-embed-text} and stored in the Oracle Database 26ai.
 
 To maximize ingestion performance, I developed a batch-insertion methodology where embeddings are created and inserted into the database in batches rather than individually.
 
@@ -109,7 +109,7 @@ I explicitly separated the ingestion process into two steps to ensure each chunk
 
 \subsection{Storage Layer}
 
-Oracle Database 23ai is the vector store used in this system. I selected Oracle for its comprehensive support for both relational and vector data; its unified approach to storing both types of data. It utilizes a Hierarchical Navigable Small World (HNSW) index to facilitate efficient and approximate nearest neighbor search.
+Oracle Database 26ai is the vector store used in this system. I selected Oracle for its comprehensive support for both relational and vector data; its unified approach to storing both types of data. It utilizes a Hierarchical Navigable Small World (HNSW) index to facilitate efficient and approximate nearest neighbor search.
 
 The retrieval layer leverages the native \texttt{VECTOR\_DISTANCE} function. Below is a Python implementation of the SQL query to execute a cosine-similarity search in \texttt{ragcli/database/vector\_ops.py}:
 
@@ -208,6 +208,6 @@ I was able to maintain a constant throughput rate of between 88 and 108 tokens-p
 
 \section{Conclusion}
 
-\texttt{ragcli} demonstrates that I have successfully implemented a modern RAG-pipeline as a local CLI-tool without sacrificing performance. By combining the robust vector-search capabilities within Oracle Database 23ai with the lightweight \texttt{gemma3:270m} model, I was able to achieve sub-second retrieval-times and generate new text at rates greater than 90 tokens per second. Future iterations of \texttt{ragcli} will focus on adding re-rankers to improve relevance ranking in addition to improving the ingestion-pipeline for better overall performance.
+\texttt{ragcli} demonstrates that I have successfully implemented a modern RAG-pipeline as a local CLI-tool without sacrificing performance. By combining the robust vector-search capabilities within Oracle Database 26ai with the lightweight \texttt{gemma3:270m} model, I was able to achieve sub-second retrieval-times and generate new text at rates greater than 90 tokens per second. Future iterations of \texttt{ragcli} will focus on adding re-rankers to improve relevance ranking in addition to improving the ingestion-pipeline for better overall performance.
 
 \end{document}

@@ -1,6 +1,6 @@
-# ragcli
+# ragcli: a friendly interface to Oracle Autonomous 26ai
 
-An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vector search and **Ollama** for local LLM inference.
+An aesthetic, production-ready RAG system using **Oracle Database 26ai** for vector search and **Ollama** for local LLM inference.
 
 ![](./img/1.png)
 
@@ -8,12 +8,12 @@ An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vec
 
 1. **Frontend**: React (Vite) + TailwindCSS
 2. **Backend**: FastAPI
-3. **Database**: Oracle Database 23ai Free (Vector Store)
+3. **Database**: Oracle Database 26ai Free (Vector Store)
 4. **LLM**: Ollama (Local Inference)
 
 ## Features
 
-- 🚀 **Oracle Database 23ai**: AI Vector Search integration
+- 🚀 **Oracle Database 26ai**: AI Vector Search integration
 - 🤖 **Ollama Integration**: Defaulting to the efficient `gemma3:270m` for chat
 - 📊 **Real-time Visualization**: Dynamic vector space visualization and heatmap of search calculations
 - 📄 **Document Processing**: Support for PDF, Markdown, and Text
@@ -33,7 +33,7 @@ An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vec
 
 ## Prerequisites
 Before running ragcli:
-1. **Oracle Database 23ai**: Set up with vector capabilities. Provide username, password, DSN in config.yaml.
+1. **Oracle Database 26ai**: Set up with vector capabilities. Provide username, password, DSN in config.yaml.
 2. **Ollama**: Install and run `ollama serve`. Pull models: `ollama pull nomic-embed-text` (embeddings), `ollama pull gemma3:270m` (chat).
 3. **Python 3.9+**: With pip.
 
@@ -288,6 +288,17 @@ python ragcli.py oracle-test embedding "..."     # Test embedding generation
 ```
 You can also access the **Test Suite** from the interactive REPL menu (Option 7).
 
+#### Using Oracle In-Database Embeddings for Document Upload
+By default, ragcli uses Ollama for embedding generation. To use **langchain-oracledb's OracleEmbeddings** for in-database embedding generation (using ONNX models loaded into Oracle DB), update your `config.yaml`:
+```yaml
+vector_index:
+  use_oracle_embeddings: true
+  oracle_embedding_params:
+    provider: "database"
+    model: "ALL_MINILM_L12_V2"  # ONNX model loaded in Oracle DB
+```
+This eliminates external API calls for embeddings and leverages Oracle's native AI capabilities.
+
 ## Troubleshooting
 - **Ollama unreachable**: Run `ollama serve` and check endpoint. Use `ragcli models list` to verify.
 - **Oracle DPY-1005 (Busy Connection)**: Fixed! Ensure you are using the latest version which properly handles connection pooling and closure.
@@ -301,7 +312,7 @@ For issues, run with `--debug` or set `app.debug: true`.
 
 ## Annex A: Detailed Prerequisites
 - **Ollama**: https://ollama.com/ - `curl -fsSL https://ollama.com/install.sh | sh`
-- **Oracle 23ai**: Enable vector search; connect via oracledb (no wallet needed for TLS).
+- **Oracle 26ai**: Enable vector search; connect via oracledb (no wallet needed for TLS).
 - **Models**: Ensure pulled in Ollama.
 
 ## Annex B: Full Specification

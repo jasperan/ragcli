@@ -63,8 +63,8 @@ class OracleClient:
             cursor.execute("SELECT COUNT(*) FROM USER_INDEXES WHERE INDEX_NAME = 'CHUNKS_EMBEDDING_IDX'")
             if cursor.fetchone()[0] == 0:
                 print("WARNING: Skipping vector index creation due to unsupported syntax in current Oracle Database version.")
-                print("Vector search will work but may be slower without an index. Please ensure Oracle Database 23ai or later is used.")
-                # Vector index creation requires Oracle Database 23ai+ with vector support enabled.
+                print("Vector search will work but may be slower without an index. Please ensure Oracle Database 26ai or later is used.")
+                # Vector index creation requires Oracle Database 26ai+ with vector support enabled.
                 # vi_config = self.config['vector_index']
                 # if vi_config['index_type'] == 'HNSW':
                 #     index_sql = f"""CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX

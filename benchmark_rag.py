@@ -33,7 +33,7 @@ def run_benchmarks():
         "system_info": {
             "model_chat": "gemma3:270m",
             "model_embedding": "nomic-embed-text",
-            "db": "Oracle Database 23ai (Simulated/Real)"
+            "db": "Oracle Database 26ai (Simulated/Real)"
         },
         "ingestion": {},
         "retrieval": {}
