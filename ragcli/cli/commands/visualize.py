@@ -49,12 +49,11 @@ def visualize(
         
         chunk_table = Table(show_header=True, header_style="bold #a855f7", box=None)
         chunk_table.add_column("#", style="dim", width=4)
-        chunk_table.add_column("Chunk Content", style="white")
+        chunk_table.add_column("Chunk Content", style="white", no_wrap=False)
         chunk_table.add_column("Length", style="cyan", justify="right")
         
         for i, chunk in enumerate(chunks, 1):
-            preview = chunk[:80] + "..." if len(chunk) > 80 else chunk
-            chunk_table.add_row(str(i), preview, f"{len(chunk)} chars")
+            chunk_table.add_row(str(i), chunk, f"{len(chunk)} chars")
         
         console.print(chunk_table)
         console.print(f"\n   [dim]Total chunks: {len(chunks)}[/dim]")
