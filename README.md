@@ -2,6 +2,8 @@
 
 An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vector search and **Ollama** for local LLM inference.
 
+![](./img/1.png)
+
 ## Architecture
 
 1. **Frontend**: React (Vite) + TailwindCSS
@@ -22,6 +24,12 @@ An aesthetic, production-ready RAG system using **Oracle Database 23ai** for vec
 - **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics
 - **Visualizations**: CLI-based visualizations and Plotly charts for retrieval analysis
 - **Deployment**: PyPI, Docker Compose, standalone binary
+
+![](./img/2.png)
+
+![](./img/3.png)
+
+![](./img/4.png)
 
 ## Prerequisites
 Before running ragcli:
