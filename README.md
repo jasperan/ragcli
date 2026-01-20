@@ -19,7 +19,6 @@ An aesthetic, production-ready RAG system using **Oracle Database 26ai** for vec
 - 📄 **Document Processing**: Support for PDF, Markdown, and Text
 - ⚡ **FastAPI Backend**: Robust API with streaming support
 - 🎨 **Modern UI**: React + Tailwind + Vite frontend with modern aesthetics and fluid animations
-- **AnythingLLM Integration**: Connect with AnythingLLM for an alternative web UI experience
 - **Ollama Auto-Detection**: Automatically detect and validate all available Ollama models
 - **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics
 - **Visualizations**: CLI-based visualizations and Plotly charts for retrieval analysis
@@ -56,7 +55,7 @@ python ragcli.py
 
 ## Docker Compose (Recommended)
 
-Full stack with ragcli API, AnythingLLM, and Ollama:
+Full stack with ragcli API, and Ollama:
 
 Create the .env file
 ```bash
@@ -76,7 +75,6 @@ docker exec ollama ollama pull gemma3:270m
 ```
 
 Access the services
-- AnythingLLM UI: http://localhost:3001
 - ragcli API: http://localhost:8000/docs
 - Ollama: http://localhost:11434
 
@@ -139,7 +137,6 @@ python ragcli.py api --port 8000
 ```
 
 - API docs: http://localhost:8000/docs
-- Connect with AnythingLLM or use API directly
 
 5. **Launch Premium Frontend (Optional but Recommended)**:
 ```bash
@@ -188,10 +185,9 @@ Premium Web Interface The project includes a stunning, minimalist frontend inspi
 2. Start the frontend: `cd frontend && npm run dev`
 3. Navigate to `http://localhost:5173`
 
-### API & AnythingLLM Integration
+### API Integration
 
 - **FastAPI Backend**: RESTful API with Swagger documentation at `/docs`
-- **AnythingLLM**: Modern web UI for document management and chat
 - **Docker Compose**: One-command deployment with `docker-compose up -d`
 - **API Endpoints**:
 - `POST /api/documents/upload` - Upload documents
@@ -201,7 +197,6 @@ Premium Web Interface The project includes a stunning, minimalist frontend inspi
 - `GET /api/status` - System health
 - `GET /api/stats` - Database statistics
 
-See [docs/ANYTHINGLLM_INTEGRATION.md](docs/ANYTHINGLLM_INTEGRATION.md) for detailed setup.
 
 ### Configuration
 
