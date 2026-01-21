@@ -95,7 +95,7 @@ chunk_content = chunk_data['text']
 token_count = chunk_data['token_count']
 char_count = chunk_data['char_count']
 
-# Embedding generation using Ollama
+# Embedding generation using ollama
 emb = generate_embedding(chunk_content, config['ollama']['embedding_model'], config)
 
 # Store Chunk in Oracle Database
