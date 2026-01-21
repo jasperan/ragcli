@@ -210,3 +210,6 @@ __marimo__/
 # avoid committing config.yaml to version control
 config.yaml 
 CLAUDE.md
+
+# Claude-generated plan documents
+docs/plans/
