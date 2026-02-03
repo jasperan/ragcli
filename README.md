@@ -4,6 +4,14 @@ An aesthetic, production-ready RAG system using **Oracle Database 26ai** for vec
 
 ![](./img/1.png)
 
+## Notebooks
+
+Interactive Jupyter notebooks demonstrating ragcli capabilities:
+
+| Name | Description | Stack | Link |
+| ---- | ----------- | ----- | ---- |
+| ragcli_demo | Comprehensive demo of RAG pipeline and langchain-oracledb features (OracleDocLoader, OracleTextSplitter, OracleEmbeddings, OracleSummary) | Oracle AI Database 26ai, Ollama, langchain-oracledb | [![Open Notebook](https://img.shields.io/badge/Open%20Notebook-orange?style=flat-square)](./ragcli_demo.ipynb) |
+
 ## Architecture
 
 1. **Frontend**: React (Vite) + TailwindCSS
