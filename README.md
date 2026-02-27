@@ -10,7 +10,7 @@ Interactive Jupyter notebooks demonstrating ragcli capabilities:
 
 | Name | Description | Stack | Link |
 | ---- | ----------- | ----- | ---- |
-| ragcli_demo | Comprehensive demo of RAG pipeline and langchain-oracledb features (OracleDocLoader, OracleTextSplitter, OracleEmbeddings, OracleSummary) | Oracle AI Database 26ai, Ollama, langchain-oracledb | [![Open Notebook](https://img.shields.io/badge/Open%20Notebook-orange?style=flat-square)](./ragcli_demo.ipynb) |
+| ragcli_demo | Comprehensive demo of RAG pipeline and langchain-oracledb features (OracleDocLoader, OracleTextSplitter, OracleEmbeddings, OracleSummary) | Oracle AI Database 26ai, Ollama, langchain-oracledb | [![Open Notebook](https://img.shields.io/badge/Open%20Notebook-orange?style=for-the-badge)](./ragcli_demo.ipynb) |
 
 ## Architecture
 
@@ -365,3 +365,13 @@ Annex A: Detailed Prerequisites
 - **Ollama**: https://ollama.com/ - `curl -fsSL https://ollama.com/install.sh | sh`
 - **Oracle 26ai**: Enable vector search; connect via oracledb (no wallet needed for TLS).
 - **Models**: Ensure pulled in Ollama.
+
+---
+
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-jasperan-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/jasperan)&nbsp;
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-jasperan-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jasperan/)&nbsp;
+[![Oracle](https://img.shields.io/badge/Oracle_Database-Free-F80000?style=for-the-badge&logo=oracle&logoColor=white)](https://www.oracle.com/database/free/)
+
+</div>
