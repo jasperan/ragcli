@@ -3,8 +3,8 @@ database:
   active_profile: "local"
   profiles:
     local:
-      username: "ADMIN"
-      password: "Welcome12345*"
+      username: "PDBADMIN"
+      password: "OraclePageIndex123"
       dsn: "localhost:1521/FREEPDB1"
       use_tls: false
       tls_wallet_path: null
@@ -20,7 +20,7 @@ database:
 # Oracle Database 26ai Configuration (legacy, points to active profile)
 oracle:
   username: "ADMIN"
-  password: "Welcome12345*"
+  password: "OraclePageIndex123"
   dsn: "localhost:1521/FREEPDB1"
   use_tls: false
   tls_wallet_path: null
