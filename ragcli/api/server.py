@@ -29,8 +29,15 @@ from .models import (
     OllamaModel,
     SystemStatus,
     SystemStats,
-    ComponentStatus
+    ComponentStatus,
+    GraphNode,
+    GraphEdge,
+    GraphMetadata,
+    EmbeddingGraphResponse,
+    GraphQueryRequest
 )
+from ragcli.database.vector_ops import get_embedding_graph, get_query_graph
+from ragcli.core.embedding import generate_embedding
 
 # Load config
 config = load_config()
@@ -312,6 +319,92 @@ async def get_stats():
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+
+@app.get("/api/embeddings/graph", response_model=EmbeddingGraphResponse)
+async def get_graph(
+    min_similarity: float = Query(0.5, ge=0.0, le=1.0),
+    top_k: int = Query(10, ge=1, le=50),
+    document_ids: Optional[str] = Query(None, description="Comma-separated document IDs"),
+    limit: int = Query(500, ge=1, le=5000)
+):
+    """Get embedding similarity graph for visualization."""
+    try:
+        client = OracleClient(config)
+        conn = client.get_connection()
+
+        doc_id_list = document_ids.split(",") if document_ids else None
+
+        result = get_embedding_graph(
+            conn=conn,
+            min_similarity=min_similarity,
+            top_k=top_k,
+            document_ids=doc_id_list,
+            limit=limit
+        )
+
+        conn.close()
+        client.close()
+
+        nodes = [GraphNode(**n) for n in result["nodes"]]
+        edges = [GraphEdge(**e) for e in result["edges"]]
+
+        return EmbeddingGraphResponse(
+            nodes=nodes,
+            edges=edges,
+            metadata=GraphMetadata(
+                total_chunks=result["total_chunks"],
+                returned_chunks=len(nodes),
+                embedding_model=config['ollama']['embedding_model'],
+                dimension=config.get('vector_index', {}).get('dimension', 768),
+                min_similarity=min_similarity,
+                top_k=top_k
+            )
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to build graph: {str(e)}")
+
+
+@app.post("/api/embeddings/graph/query", response_model=EmbeddingGraphResponse)
+async def get_query_graph_endpoint(request: GraphQueryRequest):
+    """Get embedding graph with a query node included."""
+    try:
+        embedding_model = config['ollama']['embedding_model']
+        query_embedding = generate_embedding(request.query, embedding_model, config)
+
+        client = OracleClient(config)
+        conn = client.get_connection()
+
+        result = get_query_graph(
+            conn=conn,
+            query_embedding=query_embedding,
+            query_text=request.query,
+            min_similarity=request.min_similarity,
+            top_k=request.top_k,
+            document_ids=request.document_ids,
+            limit=request.limit
+        )
+
+        conn.close()
+        client.close()
+
+        nodes = [GraphNode(**n) for n in result["nodes"]]
+        edges = [GraphEdge(**e) for e in result["edges"]]
+
+        return EmbeddingGraphResponse(
+            nodes=nodes,
+            edges=edges,
+            metadata=GraphMetadata(
+                total_chunks=result["total_chunks"],
+                returned_chunks=len(nodes),
+                embedding_model=embedding_model,
+                dimension=config.get('vector_index', {}).get('dimension', 768),
+                min_similarity=request.min_similarity,
+                top_k=request.top_k
+            )
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to build query graph: {str(e)}")
 
 
 def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
