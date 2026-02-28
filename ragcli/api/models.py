@@ -102,3 +102,47 @@ class SystemStats(BaseModel):
     embedding_dimension: int
     index_type: Optional[str] = None
 
+
+class GraphNode(BaseModel):
+    """Node in the embedding graph."""
+    id: str
+    document_id: str
+    document_name: str
+    chunk_number: int
+    text_preview: str
+    token_count: int
+    node_type: str = "chunk"  # "chunk" or "query"
+
+
+class GraphEdge(BaseModel):
+    """Edge in the embedding graph."""
+    source: str
+    target: str
+    similarity: float
+
+
+class GraphMetadata(BaseModel):
+    """Metadata about the graph."""
+    total_chunks: int
+    returned_chunks: int
+    embedding_model: str
+    dimension: int
+    min_similarity: float
+    top_k: int
+
+
+class EmbeddingGraphResponse(BaseModel):
+    """Response for embedding graph endpoint."""
+    nodes: List[GraphNode]
+    edges: List[GraphEdge]
+    metadata: GraphMetadata
+
+
+class GraphQueryRequest(BaseModel):
+    """Request for graph with query node."""
+    query: str = Field(..., min_length=1, description="Query text to embed and add as node")
+    min_similarity: float = Field(0.5, ge=0.0, le=1.0)
+    top_k: int = Field(10, ge=1, le=50)
+    document_ids: Optional[List[str]] = None
+    limit: int = Field(500, ge=1, le=5000)
+
