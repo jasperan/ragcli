@@ -15,14 +15,25 @@ class OracleClient:
         self.pool = None
         self._connect()
 
+    def _get_db_config(self) -> dict:
+        """Resolve database config from profiles or legacy oracle key."""
+        db = self.config.get('database', {})
+        if 'profiles' in db:
+            profile_name = db.get('active_profile', 'local')
+            profile = db['profiles'].get(profile_name)
+            if profile:
+                return profile
+        return self.config.get('oracle', {})
+
     def _connect(self):
         """Establish connection pool."""
-        username = self.config['oracle']['username']
-        password = self.config['oracle']['password']
-        dsn = self.config['oracle']['dsn']
-        pool_size = self.config['oracle'].get('pool_size', 10)
-        use_tls = self.config['oracle'].get('use_tls', True)
-        tls_wallet_path = self.config['oracle'].get('tls_wallet_path', None)
+        db_config = self._get_db_config()
+        username = db_config.get('username') or db_config.get('user', 'ADMIN')
+        password = db_config['password']
+        dsn = db_config['dsn']
+        pool_size = db_config.get('pool_size', 10)
+        use_tls = db_config.get('use_tls', True)
+        tls_wallet_path = db_config.get('tls_wallet_path', None)
 
         # Configure TLS: always use TLS, never require wallet path
         params = {}
