@@ -8,6 +8,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Google Sans"', 'Roboto', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        display: ['"Outfit"', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {
@@ -21,7 +23,17 @@ export default {
           700: '#1967d2',
           800: '#185abc',
           900: '#174ea6',
-        }
+        },
+        void: '#06060a',
+        deep: '#0a0a10',
+        surface: '#101018',
+        elevated: '#16161f',
+        'border-subtle': '#1e1e2a',
+        'border-default': '#2a2a3a',
+        accent: {
+          DEFAULT: '#7c3aed',
+          dim: '#5b21b6',
+        },
       },
       boxShadow: {
         'google': '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
