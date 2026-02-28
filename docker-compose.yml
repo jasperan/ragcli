@@ -17,7 +17,10 @@ services:
     networks:
       - ragcli-network
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+      oracle-free:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -26,6 +29,26 @@ services:
       retries: 3
 
 
+
+  # Oracle Database 26ai Free
+  oracle-free:
+    image: container-registry.oracle.com/database/free:latest-lite
+    container_name: oracle-free
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PWD=${ORACLE_PASSWORD:-Welcome12345*}
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    networks:
+      - ragcli-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s ADMIN/$${ORACLE_PWD}@localhost:1521/FREEPDB1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   # Ollama LLM Server
   ollama:
@@ -49,6 +72,8 @@ services:
 
 volumes:
   ragcli-data:
+    driver: local
+  oracle-data:
     driver: local
   anythingllm-storage:
     driver: local
