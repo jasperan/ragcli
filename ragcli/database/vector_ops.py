@@ -272,4 +272,141 @@ def log_query(
     return query_id
 
 
+def get_embedding_graph(
+    conn: oracledb.Connection,
+    min_similarity: float = 0.5,
+    top_k: int = 10,
+    document_ids: Optional[List[str]] = None,
+    limit: int = 500
+) -> Dict[str, Any]:
+    """
+    Build a graph of chunk embeddings connected by cosine similarity.
+    Uses Oracle VECTOR_DISTANCE for server-side similarity computation.
+    """
+    cursor = conn.cursor()
+
+    # Step 1: Get nodes (chunks with metadata)
+    node_sql = """
+    SELECT c.chunk_id, c.document_id, d.filename, c.chunk_number,
+           DBMS_LOB.SUBSTR(c.chunk_text, 100, 1) AS text_preview,
+           c.token_count
+    FROM CHUNKS c
+    JOIN DOCUMENTS d ON c.document_id = d.document_id
+    """
+    if document_ids:
+        placeholders = ",".join(f"'{did}'" for did in document_ids)
+        node_sql += f" WHERE c.document_id IN ({placeholders})"
+    node_sql += f" FETCH FIRST {limit} ROWS ONLY"
+
+    cursor.execute(node_sql)
+    nodes = []
+    node_ids = set()
+    for row in cursor:
+        text_preview = str(row[4]) if row[4] else ""
+        nodes.append({
+            "id": row[0],
+            "document_id": row[1],
+            "document_name": row[2],
+            "chunk_number": row[3],
+            "text_preview": text_preview,
+            "token_count": row[5] or 0,
+            "node_type": "chunk"
+        })
+        node_ids.add(row[0])
+
+    if len(nodes) < 2:
+        cursor.close()
+        return {"nodes": nodes, "edges": [], "total_chunks": len(nodes)}
+
+    # Step 2: Compute pairwise similarities using VECTOR_DISTANCE
+    min_distance = 1.0 - min_similarity
+
+    edge_sql = f"""
+    SELECT source_id, target_id, similarity FROM (
+        SELECT a.chunk_id AS source_id,
+               b.chunk_id AS target_id,
+               (1 - VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE)) AS similarity,
+               ROW_NUMBER() OVER (PARTITION BY a.chunk_id ORDER BY VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) ASC) AS rn
+        FROM CHUNKS a
+        CROSS JOIN CHUNKS b
+        WHERE a.chunk_id < b.chunk_id
+    """
+    if document_ids:
+        placeholders = ",".join(f"'{did}'" for did in document_ids)
+        edge_sql += f" AND a.document_id IN ({placeholders}) AND b.document_id IN ({placeholders})"
+
+    edge_sql += f"""
+          AND VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) <= {min_distance}
+    ) WHERE rn <= {top_k}
+    """
+
+    cursor.execute(edge_sql)
+    edges = []
+    for row in cursor:
+        source_id, target_id, similarity = row[0], row[1], row[2]
+        if source_id in node_ids and target_id in node_ids:
+            edges.append({
+                "source": source_id,
+                "target": target_id,
+                "similarity": float(similarity)
+            })
+
+    cursor.close()
+    return {"nodes": nodes, "edges": edges, "total_chunks": len(nodes)}
+
+
+def get_query_graph(
+    conn: oracledb.Connection,
+    query_embedding: List[float],
+    query_text: str,
+    min_similarity: float = 0.5,
+    top_k: int = 10,
+    document_ids: Optional[List[str]] = None,
+    limit: int = 500
+) -> Dict[str, Any]:
+    """Build a graph that includes a query node connected to similar chunks."""
+    result = get_embedding_graph(conn, min_similarity, top_k, document_ids, limit)
+
+    query_node = {
+        "id": "query",
+        "document_id": "",
+        "document_name": "",
+        "chunk_number": 0,
+        "text_preview": query_text[:100],
+        "token_count": 0,
+        "node_type": "query"
+    }
+    result["nodes"].insert(0, query_node)
+
+    cursor = conn.cursor()
+    sim_sql = """
+    SELECT c.chunk_id,
+           (1 - VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE)) AS similarity
+    FROM CHUNKS c
+    """
+    if document_ids:
+        placeholders = ",".join(f"'{did}'" for did in document_ids)
+        sim_sql += f" WHERE c.document_id IN ({placeholders})"
+
+    sim_sql += f"""
+    ORDER BY VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) ASC
+    FETCH FIRST {top_k} ROWS ONLY
+    """
+
+    cursor.execute(sim_sql, {"v_query_emb": json.dumps(query_embedding)})
+
+    node_ids = {n["id"] for n in result["nodes"]}
+    for row in cursor:
+        chunk_id, similarity = row[0], float(row[1])
+        if chunk_id in node_ids and similarity >= min_similarity:
+            result["edges"].append({
+                "source": "query",
+                "target": chunk_id,
+                "similarity": similarity
+            })
+
+    cursor.close()
+    return result
+
+
 # TODO: Batch inserts, retries, index maintenance
