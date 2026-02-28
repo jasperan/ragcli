@@ -3,8 +3,6 @@
 import oracledb
 from typing import Optional
 from .schemas import get_create_schemas_sql
-import oracledb
-from typing import List
 
 # Force thin mode (default) to avoid thick mode credential issues
 oracledb.defaults.thin_mode = True

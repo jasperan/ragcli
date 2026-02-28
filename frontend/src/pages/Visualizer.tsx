@@ -15,6 +15,7 @@ export function Visualizer() {
 
   useEffect(() => {
     fetchGraph();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

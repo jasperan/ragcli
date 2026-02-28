@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 import type { GraphFilters } from '../../hooks/useGraphData';
 
@@ -11,6 +11,10 @@ interface FilterPanelProps {
 export function FilterPanel({ filters, onApply, loading }: FilterPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
+
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   const handleApply = () => {
     onApply(localFilters);

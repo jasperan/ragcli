@@ -329,10 +329,9 @@ async def get_graph(
     limit: int = Query(500, ge=1, le=5000)
 ):
     """Get embedding similarity graph for visualization."""
+    client = OracleClient(config)
+    conn = client.get_connection()
     try:
-        client = OracleClient(config)
-        conn = client.get_connection()
-
         doc_id_list = document_ids.split(",") if document_ids else None
 
         result = get_embedding_graph(
@@ -342,9 +341,6 @@ async def get_graph(
             document_ids=doc_id_list,
             limit=limit
         )
-
-        conn.close()
-        client.close()
 
         nodes = [GraphNode(**n) for n in result["nodes"]]
         edges = [GraphEdge(**e) for e in result["edges"]]
@@ -363,18 +359,20 @@ async def get_graph(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to build graph: {str(e)}")
+    finally:
+        conn.close()
+        client.close()
 
 
 @app.post("/api/embeddings/graph/query", response_model=EmbeddingGraphResponse)
 async def get_query_graph_endpoint(request: GraphQueryRequest):
     """Get embedding graph with a query node included."""
+    embedding_model = config['ollama']['embedding_model']
+    query_embedding = generate_embedding(request.query, embedding_model, config)
+
+    client = OracleClient(config)
+    conn = client.get_connection()
     try:
-        embedding_model = config['ollama']['embedding_model']
-        query_embedding = generate_embedding(request.query, embedding_model, config)
-
-        client = OracleClient(config)
-        conn = client.get_connection()
-
         result = get_query_graph(
             conn=conn,
             query_embedding=query_embedding,
@@ -384,9 +382,6 @@ async def get_query_graph_endpoint(request: GraphQueryRequest):
             document_ids=request.document_ids,
             limit=request.limit
         )
-
-        conn.close()
-        client.close()
 
         nodes = [GraphNode(**n) for n in result["nodes"]]
         edges = [GraphEdge(**e) for e in result["edges"]]
@@ -405,6 +400,9 @@ async def get_query_graph_endpoint(request: GraphQueryRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to build query graph: {str(e)}")
+    finally:
+        conn.close()
+        client.close()
 
 
 def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
