@@ -35,7 +35,7 @@ CREATE TABLE CHUNKS (
     character_count     NUMBER NOT NULL,
     start_position      NUMBER,
     end_position        NUMBER,
-    chunk_embedding     VECTOR({dimension}, FLOAT32, COSINE),
+    chunk_embedding     VECTOR({dimension}, FLOAT32),
     embedding_model     VARCHAR2(50),
     created_at          TIMESTAMP DEFAULT SYSTIMESTAMP,
     FOREIGN KEY (document_id) REFERENCES DOCUMENTS(document_id) ON DELETE CASCADE,
@@ -47,7 +47,7 @@ CREATE TABLE CHUNKS (
 CREATE TABLE QUERIES (
     query_id            VARCHAR2(36) PRIMARY KEY,
     query_text          CLOB NOT NULL,
-    query_embedding     VECTOR({dimension}, FLOAT32, COSINE),
+    query_embedding     VECTOR({dimension}, FLOAT32),
     embedding_model     VARCHAR2(50),
     selected_documents  VARCHAR2(2000),  -- Comma-separated doc IDs
     top_k               NUMBER DEFAULT 5,
