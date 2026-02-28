@@ -6,11 +6,17 @@ import { NodeInfoBar } from './NodeInfoBar';
 
 interface GraphCanvasProps {
   graph: Graph | null;
+  highlightedDocumentId?: string | null;
+  onNodeSelect?: (nodeId: string | null) => void;
 }
 
-export function GraphCanvas({ graph }: GraphCanvasProps) {
+export function GraphCanvas({ graph, highlightedDocumentId, onNodeSelect }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, zoomIn, zoomOut, resetCamera, focusNode, toggleLayout } = useSigma(containerRef, graph);
+  const { state, zoomIn, zoomOut, resetCamera, focusNode, toggleLayout } = useSigma(
+    containerRef,
+    graph,
+    { highlightedDocumentId },
+  );
 
   const selectedNodeData = state.selectedNode && graph?.hasNode(state.selectedNode)
     ? graph.getNodeAttributes(state.selectedNode)
@@ -25,11 +31,11 @@ export function GraphCanvas({ graph }: GraphCanvasProps) {
       <div
         ref={containerRef}
         className="w-full h-full"
-        style={{ cursor: 'grab', background: '#06060a' }}
+        style={{ cursor: 'default', background: '#06060a' }}
       />
 
       {hoveredNodeData && !state.selectedNode && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-surface border border-border-default rounded-lg px-4 py-2 shadow-lg z-10 max-w-md">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-surface border border-border-default rounded-lg px-4 py-2 shadow-lg z-10 max-w-md pointer-events-none">
           <p className="text-[#e4e4ed] text-sm font-mono truncate">
             {hoveredNodeData.nodeType === 'query' ? 'Query' : hoveredNodeData.documentName}
             {hoveredNodeData.nodeType !== 'query' && ` #${hoveredNodeData.chunkNumber}`}

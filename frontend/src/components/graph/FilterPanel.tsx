@@ -21,7 +21,7 @@ export function FilterPanel({ filters, onApply, loading }: FilterPanelProps) {
   };
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-64">
+    <div className="absolute top-4 right-20 z-10 w-64">
       <div className="bg-surface border border-border-default rounded-lg shadow-lg overflow-hidden">
         <button
           onClick={() => setCollapsed(!collapsed)}

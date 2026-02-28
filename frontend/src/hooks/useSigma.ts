@@ -31,16 +31,33 @@ export interface SigmaState {
   layoutRunning: boolean;
 }
 
-export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, graph: Graph | null) {
+interface UseSigmaOptions {
+  highlightedDocumentId?: string | null;
+}
+
+export function useSigma(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  graph: Graph | null,
+  options: UseSigmaOptions = {},
+) {
   const sigmaRef = useRef<Sigma | null>(null);
   const layoutRef = useRef<FA2Layout | null>(null);
   const selectedNodeRef = useRef<string | null>(null);
   const hoveredNodeRef = useRef<string | null>(null);
+  const highlightedDocRef = useRef<string | null>(null);
+  const isDraggingRef = useRef(false);
+  const draggedNodeRef = useRef<string | null>(null);
   const [state, setState] = useState<SigmaState>({
     selectedNode: null,
     hoveredNode: null,
     layoutRunning: false,
   });
+
+  // Keep highlighted doc ref in sync
+  useEffect(() => {
+    highlightedDocRef.current = options.highlightedDocumentId ?? null;
+    sigmaRef.current?.refresh();
+  }, [options.highlightedDocumentId]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) return;
@@ -69,6 +86,11 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
       labelColor: { color: '#e4e4ed' },
       labelSize: 11,
       stagePadding: 50,
+      // Performance: hide edges/labels during camera movement
+      hideEdgesOnMove: true,
+      hideLabelsOnMove: true,
+      // Smooth zoom
+      zoomToSizeRatioFunction: (x) => x,
       edgeProgramClasses: {
         curved: EdgeCurveProgram,
       },
@@ -76,11 +98,32 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
         const res = { ...data };
         const selected = selectedNodeRef.current;
         const hovered = hoveredNodeRef.current;
+        const highlightedDoc = highlightedDocRef.current;
+
+        // Document highlighting takes precedence when active
+        if (highlightedDoc) {
+          const nodeDocId = graph.getNodeAttribute(node, 'documentId');
+          if (nodeDocId === highlightedDoc) {
+            res.highlighted = true;
+            res.size = (data.size || 6) * 1.5;
+            res.color = '#7c3aed'; // accent purple
+          } else {
+            res.color = dimColor(data.color || '#475569', 0.15);
+            res.size = (data.size || 6) * 0.5;
+            res.label = '';
+          }
+          // If a node is also selected, boost it further
+          if (node === selected) {
+            res.size = (data.size || 6) * 2;
+            res.highlighted = true;
+          }
+          return res;
+        }
 
         if (selected) {
           if (node === selected) {
             res.highlighted = true;
-            res.size = (data.size || 6) * 1.5;
+            res.size = (data.size || 6) * 1.8;
           } else if (graph.hasEdge(node, selected) || graph.hasEdge(selected, node)) {
             res.size = (data.size || 6) * 1.3;
           } else {
@@ -89,7 +132,12 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
             res.label = '';
           }
         } else if (hovered) {
-          if (node !== hovered && !graph.hasEdge(node, hovered) && !graph.hasEdge(hovered, node)) {
+          if (node === hovered) {
+            res.highlighted = true;
+            res.size = (data.size || 6) * 1.4;
+          } else if (graph.hasEdge(node, hovered) || graph.hasEdge(hovered, node)) {
+            res.size = (data.size || 6) * 1.2;
+          } else {
             res.color = dimColor(data.color || '#475569', 0.3);
             res.size = (data.size || 6) * 0.7;
             res.label = '';
@@ -101,6 +149,20 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
       edgeReducer: (edge, data) => {
         const res = { ...data };
         const selected = selectedNodeRef.current;
+        const highlightedDoc = highlightedDocRef.current;
+
+        if (highlightedDoc) {
+          const extremities = graph.extremities(edge);
+          const srcDoc = graph.getNodeAttribute(extremities[0], 'documentId');
+          const tgtDoc = graph.getNodeAttribute(extremities[1], 'documentId');
+          if (srcDoc !== highlightedDoc && tgtDoc !== highlightedDoc) {
+            res.hidden = true;
+          } else {
+            res.color = '#7c3aed';
+            res.size = (data.size || 1) * 1.5;
+          }
+          return res;
+        }
 
         if (selected) {
           const extremities = graph.extremities(edge);
@@ -113,7 +175,10 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
       },
     });
 
+    // --- Node click ---
     sigma.on('clickNode', ({ node }) => {
+      // Ignore clicks that were actually drags
+      if (isDraggingRef.current) return;
       const newSelected = selectedNodeRef.current === node ? null : node;
       selectedNodeRef.current = newSelected;
       setState(prev => ({ ...prev, selectedNode: newSelected }));
@@ -121,28 +186,73 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
     });
 
     sigma.on('clickStage', () => {
+      if (isDraggingRef.current) return;
       selectedNodeRef.current = null;
       setState(prev => ({ ...prev, selectedNode: null }));
       sigma.refresh();
     });
 
+    // --- Node hover ---
     sigma.on('enterNode', ({ node }) => {
       hoveredNodeRef.current = node;
       setState(prev => ({ ...prev, hoveredNode: node }));
-      if (containerRef.current) containerRef.current.style.cursor = 'pointer';
-      sigma.refresh();
-    });
-
-    sigma.on('leaveNode', () => {
-      hoveredNodeRef.current = null;
-      setState(prev => ({ ...prev, hoveredNode: null }));
       if (containerRef.current) containerRef.current.style.cursor = 'grab';
       sigma.refresh();
     });
 
+    sigma.on('leaveNode', () => {
+      if (!isDraggingRef.current) {
+        hoveredNodeRef.current = null;
+        setState(prev => ({ ...prev, hoveredNode: null }));
+        if (containerRef.current) containerRef.current.style.cursor = 'default';
+        sigma.refresh();
+      }
+    });
+
+    // --- Node dragging ---
+    sigma.on('downNode', (e) => {
+      isDraggingRef.current = true;
+      draggedNodeRef.current = e.node;
+      // Fix the node so ForceAtlas2 doesn't move it
+      graph.setNodeAttribute(e.node, 'fixed', true);
+      // Disable sigma camera dragging while we drag a node
+      sigma.getCamera().disable();
+      if (containerRef.current) containerRef.current.style.cursor = 'grabbing';
+    });
+
+    sigma.getMouseCaptor().on('mousemovebody', (e) => {
+      if (!isDraggingRef.current || !draggedNodeRef.current) return;
+      // Convert viewport coords to graph coords
+      const pos = sigma.viewportToGraph(e);
+      graph.setNodeAttribute(draggedNodeRef.current, 'x', pos.x);
+      graph.setNodeAttribute(draggedNodeRef.current, 'y', pos.y);
+      // Prevent sigma from treating this as a camera pan
+      e.preventSigmaDefault();
+      e.original.preventDefault();
+      e.original.stopPropagation();
+    });
+
+    const handleMouseUp = () => {
+      if (draggedNodeRef.current) {
+        graph.removeNodeAttribute(draggedNodeRef.current, 'fixed');
+      }
+      isDraggingRef.current = false;
+      draggedNodeRef.current = null;
+      sigma.getCamera().enable();
+      if (containerRef.current) containerRef.current.style.cursor = 'default';
+    };
+
+    sigma.getMouseCaptor().on('mouseup', handleMouseUp);
+    sigma.getMouseCaptor().on('mousedown', () => {
+      // Only for stage clicks — update cursor
+      if (!isDraggingRef.current && containerRef.current) {
+        containerRef.current.style.cursor = 'default';
+      }
+    });
+
     sigmaRef.current = sigma;
 
-    // Start ForceAtlas2 layout in Web Worker
+    // --- ForceAtlas2 layout (continuous, user-controlled) ---
     const layout = new FA2Layout(graph, {
       settings: {
         gravity,
@@ -159,16 +269,9 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
     layoutRef.current = layout;
     setState(prev => ({ ...prev, layoutRunning: true }));
 
-    const stopTimeout = nodeCount < 500 ? 10000 : nodeCount < 2000 ? 20000 : 30000;
-    const timer = setTimeout(() => {
-      if (layoutRef.current) {
-        layoutRef.current.stop();
-        setState(prev => ({ ...prev, layoutRunning: false }));
-      }
-    }, stopTimeout);
+    // No auto-stop — layout runs until user pauses or component unmounts
 
     return () => {
-      clearTimeout(timer);
       if (layoutRef.current) {
         layoutRef.current.kill();
         layoutRef.current = null;
@@ -198,7 +301,7 @@ export function useSigma(containerRef: React.RefObject<HTMLDivElement | null>, g
     if (!displayData) return;
     sigmaRef.current.getCamera().animate(
       { x: displayData.x, y: displayData.y, ratio: 0.15 },
-      { duration: 400 },
+      { duration: 500 },
     );
   }, [graph]);
 

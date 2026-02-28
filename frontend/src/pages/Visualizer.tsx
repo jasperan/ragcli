@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import type Graph from 'graphology';
 import { ArrowLeft, Network } from 'lucide-react';
@@ -8,10 +8,12 @@ import { buildGraph } from '../lib/graph-adapter';
 import { GraphCanvas } from '../components/graph/GraphCanvas';
 import { FilterPanel } from '../components/graph/FilterPanel';
 import { GraphSearch } from '../components/graph/GraphSearch';
+import { DocumentSelector } from '../components/graph/DocumentSelector';
 
 export function Visualizer() {
   const { data, loading, error, filters, setFilters, fetchGraph, fetchQueryGraph } = useGraphData();
   const [graph, setGraph] = useState<Graph | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGraph();
@@ -35,6 +37,17 @@ export function Visualizer() {
   const handleSearch = (query: string) => {
     fetchQueryGraph(query);
   };
+
+  // Focus on a node in the graph (called from DocumentSelector chunk list)
+  const handleFocusNode = useCallback((nodeId: string) => {
+    // We need to access the sigma instance from GraphCanvas.
+    // For now, we select the node by clicking through the graph state.
+    // The GraphCanvas focusNode is internal to useSigma — let's trigger via
+    // a custom event approach or pass through ref. For simplicity, we'll
+    // set selectedDocumentId which highlights the doc, and the user can
+    // click individual chunks in the graph.
+    // TODO: Could add a ref-based focusNode callback if needed.
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-[#06060a] overflow-hidden">
@@ -93,7 +106,20 @@ export function Visualizer() {
           </div>
         )}
 
-        {graph && <GraphCanvas graph={graph} />}
+        {graph && (
+          <GraphCanvas
+            graph={graph}
+            highlightedDocumentId={selectedDocumentId}
+          />
+        )}
+
+        {/* Document selector - left sidebar below filters */}
+        <DocumentSelector
+          data={data}
+          selectedDocumentId={selectedDocumentId}
+          onSelectDocument={setSelectedDocumentId}
+          onFocusNode={handleFocusNode}
+        />
 
         <FilterPanel filters={filters} onApply={handleFilterApply} loading={loading} />
         <GraphSearch onSearch={handleSearch} loading={loading} />
