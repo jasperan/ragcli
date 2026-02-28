@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface UploadAreaProps {

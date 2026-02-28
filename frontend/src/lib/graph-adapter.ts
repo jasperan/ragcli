@@ -1,5 +1,5 @@
 import Graph from 'graphology';
-import { GraphData, GraphNode } from '../hooks/useGraphData';
+import type { GraphData, GraphNode } from '../hooks/useGraphData';
 
 const COLORS = {
   query: '#06b6d4',
