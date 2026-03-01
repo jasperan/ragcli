@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type Graph from 'graphology';
 import { ArrowLeft, Network } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useGraphData } from '../hooks/useGraphData';
 import type { GraphFilters } from '../hooks/useGraphData';
 import { buildGraph } from '../lib/graph-adapter';
 import { GraphCanvas } from '../components/graph/GraphCanvas';
+import type { GraphCanvasHandle } from '../components/graph/GraphCanvas';
 import { FilterPanel } from '../components/graph/FilterPanel';
 import { GraphSearch } from '../components/graph/GraphSearch';
 import { DocumentSelector } from '../components/graph/DocumentSelector';
@@ -14,6 +15,7 @@ export function Visualizer() {
   const { data, loading, error, filters, setFilters, fetchGraph, fetchQueryGraph } = useGraphData();
   const [graph, setGraph] = useState<Graph | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const graphCanvasRef = useRef<GraphCanvasHandle>(null);
 
   useEffect(() => {
     fetchGraph();
@@ -38,15 +40,8 @@ export function Visualizer() {
     fetchQueryGraph(query);
   };
 
-  // Focus on a node in the graph (called from DocumentSelector chunk list)
   const handleFocusNode = useCallback((nodeId: string) => {
-    // We need to access the sigma instance from GraphCanvas.
-    // For now, we select the node by clicking through the graph state.
-    // The GraphCanvas focusNode is internal to useSigma — let's trigger via
-    // a custom event approach or pass through ref. For simplicity, we'll
-    // set selectedDocumentId which highlights the doc, and the user can
-    // click individual chunks in the graph.
-    // TODO: Could add a ref-based focusNode callback if needed.
+    graphCanvasRef.current?.focusNode(nodeId);
   }, []);
 
   return (
@@ -108,6 +103,7 @@ export function Visualizer() {
 
         {graph && (
           <GraphCanvas
+            ref={graphCanvasRef}
             graph={graph}
             highlightedDocumentId={selectedDocumentId}
           />

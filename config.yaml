@@ -19,7 +19,7 @@ database:
 
 # Oracle Database 26ai Configuration (legacy, points to active profile)
 oracle:
-  username: "ADMIN"
+  username: "PDBADMIN"
   password: "OraclePageIndex123"
   dsn: "localhost:1521/FREEPDB1"
   use_tls: false

@@ -115,28 +115,26 @@ async def list_documents(
     offset: Optional[int] = Query(0, ge=0)
 ):
     """List all documents with metadata."""
+    client = OracleClient(config)
+    conn = client.get_connection()
     try:
-        client = OracleClient(config)
-        conn = client.get_connection()
         cursor = conn.cursor()
-        
+
         # Get documents with pagination
         cursor.execute("""
-            SELECT document_id, filename, file_format, file_size_bytes, 
+            SELECT document_id, filename, file_format, file_size_bytes,
                    chunk_count, total_tokens, upload_timestamp, last_modified
             FROM DOCUMENTS
             ORDER BY upload_timestamp DESC
             OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
         """, {"offset": offset, "limit": limit})
-        
+
         rows = cursor.fetchall()
-        
+
         # Get total count
         cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
         total_count = cursor.fetchone()[0]
-        
-        client.close()
-        
+
         documents = [
             DocumentInfo(
                 document_id=row[0],
@@ -150,54 +148,58 @@ async def list_documents(
             )
             for row in rows
         ]
-        
+
         return DocumentListResponse(
             documents=documents,
             total_count=total_count
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
+    finally:
+        conn.close()
+        client.close()
 
 
 @app.delete("/api/documents/{doc_id}")
 async def delete_document(doc_id: str):
     """Delete a document and all its chunks."""
+    client = OracleClient(config)
+    conn = client.get_connection()
     try:
-        client = OracleClient(config)
-        conn = client.get_connection()
         cursor = conn.cursor()
-        
+
         # Check if document exists
         cursor.execute("SELECT filename FROM DOCUMENTS WHERE document_id = :doc_id", {"doc_id": doc_id})
         result = cursor.fetchone()
-        
+
         if not result:
-            client.close()
             raise HTTPException(status_code=404, detail="Document not found")
-        
+
         filename = result[0]
-        
+
         # Delete chunks first (foreign key constraint)
         cursor.execute("DELETE FROM CHUNKS WHERE document_id = :doc_id", {"doc_id": doc_id})
         chunks_deleted = cursor.rowcount
-        
+
         # Delete document
         cursor.execute("DELETE FROM DOCUMENTS WHERE document_id = :doc_id", {"doc_id": doc_id})
-        
+
         conn.commit()
-        client.close()
-        
+
         return {
             "message": f"Document '{filename}' deleted successfully",
             "document_id": doc_id,
             "chunks_deleted": chunks_deleted
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+    finally:
+        conn.close()
+        client.close()
 
 
 @app.post("/api/query", response_model=QueryResponse)

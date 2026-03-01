@@ -80,9 +80,7 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
 
             return (
               <div key={doc.documentId}>
-                <button
-                  onClick={() => handleDocClick(doc.documentId)}
-                  className={`w-full px-3 py-2.5 flex items-center gap-2 text-left transition-all duration-150 group ${
+                <div className={`w-full px-3 py-2.5 flex items-center gap-2 transition-all duration-150 group ${
                     isSelected
                       ? 'bg-accent/15 border-l-2 border-accent'
                       : 'hover:bg-[#1c1c28] border-l-2 border-transparent'
@@ -91,11 +89,15 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
                   <button
                     onClick={(e) => handleExpandToggle(e, doc.documentId)}
                     className="text-[#5a5a70] hover:text-[#8888a0] flex-shrink-0"
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
                   >
                     {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </button>
 
-                  <div className="flex-1 min-w-0">
+                  <button
+                    onClick={() => handleDocClick(doc.documentId)}
+                    className="flex-1 min-w-0 text-left"
+                  >
                     <p className={`text-xs font-mono truncate ${
                       isSelected ? 'text-accent' : 'text-[#e4e4ed]'
                     }`}>
@@ -104,7 +106,7 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
                     <p className="text-[10px] text-[#5a5a70] mt-0.5">
                       {doc.chunkCount} chunk{doc.chunkCount !== 1 ? 's' : ''}
                     </p>
-                  </div>
+                  </button>
 
                   <span className={`flex-shrink-0 transition-opacity ${
                     isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -114,7 +116,7 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
                       : <EyeOff size={12} className="text-[#5a5a70]" />
                     }
                   </span>
-                </button>
+                </div>
 
                 {/* Expanded chunk list */}
                 {isExpanded && (

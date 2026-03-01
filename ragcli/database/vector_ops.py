@@ -1,16 +1,19 @@
 """Vector operations for Oracle DB 26ai in ragcli."""
 
-import uuid
 import json
 from typing import List, Tuple, Dict, Any, Optional
 import oracledb
 from ..utils.logger import get_logger
+from ..utils.helpers import generate_uuid as generate_id
 
 logger = get_logger(__name__)
 
-def generate_id() -> str:
-    """Generate UUID for IDs."""
-    return str(uuid.uuid4())
+
+def _build_doc_id_binds(document_ids: List[str]) -> Tuple[Dict[str, str], str]:
+    """Return (bind_dict, placeholder_string) for an Oracle IN clause over document_ids."""
+    binds = {f"d{i}": did for i, did in enumerate(document_ids)}
+    placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
+    return binds, placeholders
 
 def insert_document(
     conn: oracledb.Connection,
@@ -117,8 +120,7 @@ def search_similar(
         'v_top_k': top_k
     }
     if document_ids:
-        doc_binds = {f"d{i}": did for i, did in enumerate(document_ids)}
-        placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
+        doc_binds, placeholders = _build_doc_id_binds(document_ids)
         sql_base += f" WHERE c.document_id IN ({placeholders}) "
         binds.update(doc_binds)
 
@@ -255,20 +257,20 @@ def log_query(
     })
 
     # Insert query results
-    for result in results[:top_k]:  # Only log top-k results
-        result_sql = """
-        INSERT INTO QUERY_RESULTS (
-            result_id, query_id, chunk_id, similarity_score, rank
-        ) VALUES (
-            :result_id, :query_id, :chunk_id, :score, :rank
-        )
-        """
+    result_sql = """
+    INSERT INTO QUERY_RESULTS (
+        result_id, query_id, chunk_id, similarity_score, rank
+    ) VALUES (
+        :result_id, :query_id, :chunk_id, :score, :rank
+    )
+    """
+    for rank, result in enumerate(results[:top_k], start=1):
         cursor.execute(result_sql, {
             'result_id': generate_id(),
             'query_id': query_id,
             'chunk_id': result['chunk_id'],
             'score': result['similarity_score'],
-            'rank': results.index(result) + 1
+            'rank': rank,
         })
 
     conn.commit()
@@ -298,8 +300,7 @@ def get_embedding_graph(
     """
     node_binds = {}
     if document_ids:
-        doc_binds = {f"d{i}": did for i, did in enumerate(document_ids)}
-        placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
+        doc_binds, placeholders = _build_doc_id_binds(document_ids)
         node_sql += f" WHERE c.document_id IN ({placeholders})"
         node_binds.update(doc_binds)
     node_sql += f" FETCH FIRST {int(limit)} ROWS ONLY"
@@ -334,8 +335,7 @@ def get_embedding_graph(
         "top_k": top_k
     }
     if document_ids:
-        doc_binds = {f"d{i}": did for i, did in enumerate(document_ids)}
-        placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
+        doc_binds, placeholders = _build_doc_id_binds(document_ids)
         doc_filter = f" WHERE c.document_id IN ({placeholders})"
         edge_binds.update(doc_binds)
 
@@ -407,8 +407,7 @@ def get_query_graph(
     """
     sim_binds = {"v_query_emb": json.dumps(query_embedding), "v_top_k": top_k}
     if document_ids:
-        doc_binds = {f"d{i}": did for i, did in enumerate(document_ids)}
-        placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
+        doc_binds, placeholders = _build_doc_id_binds(document_ids)
         sim_sql += f" WHERE c.document_id IN ({placeholders})"
         sim_binds.update(doc_binds)
 

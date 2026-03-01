@@ -1,8 +1,12 @@
-import { useRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef } from 'react';
 import type Graph from 'graphology';
 import { useSigma } from '../../hooks/useSigma';
 import { GraphControls } from './GraphControls';
 import { NodeInfoBar } from './NodeInfoBar';
+
+export interface GraphCanvasHandle {
+  focusNode: (nodeId: string) => void;
+}
 
 interface GraphCanvasProps {
   graph: Graph | null;
@@ -10,13 +14,18 @@ interface GraphCanvasProps {
   onNodeSelect?: (nodeId: string | null) => void;
 }
 
-export function GraphCanvas({ graph, highlightedDocumentId, onNodeSelect }: GraphCanvasProps) {
+export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
+  { graph, highlightedDocumentId, onNodeSelect },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state, zoomIn, zoomOut, resetCamera, focusNode, toggleLayout } = useSigma(
     containerRef,
     graph,
     { highlightedDocumentId },
   );
+
+  useImperativeHandle(ref, () => ({ focusNode }), [focusNode]);
 
   const selectedNodeData = state.selectedNode && graph?.hasNode(state.selectedNode)
     ? graph.getNodeAttributes(state.selectedNode)
@@ -60,4 +69,4 @@ export function GraphCanvas({ graph, highlightedDocumentId, onNodeSelect }: Grap
       />
     </div>
   );
-}
+});

@@ -1,6 +1,28 @@
 import Graph from 'graphology';
 import type { GraphData, GraphNode } from '../hooks/useGraphData';
 
+const BG = { r: 0x06, g: 0x06, b: 0x0a };
+
+export function dimColor(hex: string, amount: number): string {
+  let r: number, g: number, b: number;
+  if (hex.startsWith('rgb')) {
+    const match = hex.match(/(\d+)/g);
+    if (match) {
+      r = parseInt(match[0]); g = parseInt(match[1]); b = parseInt(match[2]);
+    } else {
+      return hex;
+    }
+  } else {
+    r = parseInt(hex.slice(1, 3), 16);
+    g = parseInt(hex.slice(3, 5), 16);
+    b = parseInt(hex.slice(5, 7), 16);
+  }
+  const nr = Math.round(r * amount + BG.r * (1 - amount));
+  const ng = Math.round(g * amount + BG.g * (1 - amount));
+  const nb = Math.round(b * amount + BG.b * (1 - amount));
+  return `rgb(${nr},${ng},${nb})`;
+}
+
 const COLORS = {
   query: '#06b6d4',
   highSim: '#10b981',

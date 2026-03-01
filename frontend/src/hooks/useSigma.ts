@@ -3,27 +3,7 @@ import Sigma from 'sigma';
 import Graph from 'graphology';
 import EdgeCurveProgram from '@sigma/edge-curve';
 import FA2Layout from 'graphology-layout-forceatlas2/worker';
-
-function dimColor(hex: string, amount: number): string {
-  const bg = { r: 0x06, g: 0x06, b: 0x0a };
-  let r: number, g: number, b: number;
-  if (hex.startsWith('rgb')) {
-    const match = hex.match(/(\d+)/g);
-    if (match) {
-      r = parseInt(match[0]); g = parseInt(match[1]); b = parseInt(match[2]);
-    } else {
-      return hex;
-    }
-  } else {
-    r = parseInt(hex.slice(1, 3), 16);
-    g = parseInt(hex.slice(3, 5), 16);
-    b = parseInt(hex.slice(5, 7), 16);
-  }
-  const nr = Math.round(r * amount + bg.r * (1 - amount));
-  const ng = Math.round(g * amount + bg.g * (1 - amount));
-  const nb = Math.round(b * amount + bg.b * (1 - amount));
-  return `rgb(${nr},${ng},${nb})`;
-}
+import { dimColor } from '../lib/graph-adapter';
 
 export interface SigmaState {
   selectedNode: string | null;
@@ -220,7 +200,7 @@ export function useSigma(
       if (containerRef.current) containerRef.current.style.cursor = 'grabbing';
     });
 
-    sigma.getMouseCaptor().on('mousemovebody', (e) => {
+    const handleMouseMove = (e: any) => {
       if (!isDraggingRef.current || !draggedNodeRef.current) return;
       // Convert viewport coords to graph coords
       const pos = sigma.viewportToGraph(e);
@@ -230,7 +210,7 @@ export function useSigma(
       e.preventSigmaDefault();
       e.original.preventDefault();
       e.original.stopPropagation();
-    });
+    };
 
     const handleMouseUp = () => {
       if (draggedNodeRef.current) {
@@ -242,13 +222,17 @@ export function useSigma(
       if (containerRef.current) containerRef.current.style.cursor = 'default';
     };
 
-    sigma.getMouseCaptor().on('mouseup', handleMouseUp);
-    sigma.getMouseCaptor().on('mousedown', () => {
+    const handleMouseDown = () => {
       // Only for stage clicks — update cursor
       if (!isDraggingRef.current && containerRef.current) {
         containerRef.current.style.cursor = 'default';
       }
-    });
+    };
+
+    const captor = sigma.getMouseCaptor();
+    captor.on('mousemovebody', handleMouseMove);
+    captor.on('mouseup', handleMouseUp);
+    captor.on('mousedown', handleMouseDown);
 
     sigmaRef.current = sigma;
 
@@ -269,9 +253,24 @@ export function useSigma(
     layoutRef.current = layout;
     setState(prev => ({ ...prev, layoutRunning: true }));
 
-    // No auto-stop — layout runs until user pauses or component unmounts
+    // Auto-stop layout after convergence (longer for larger graphs)
+    const autoStopMs = nodeCount > 2000 ? 30000 : nodeCount > 500 ? 15000 : 8000;
+    const autoStopTimer = setTimeout(() => {
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+        setState(prev => ({ ...prev, layoutRunning: false }));
+      }
+    }, autoStopMs);
 
     return () => {
+      clearTimeout(autoStopTimer);
+      // Clean up mouse captor listeners before killing sigma
+      const cap = sigmaRef.current?.getMouseCaptor();
+      if (cap) {
+        cap.off('mousemovebody', handleMouseMove);
+        cap.off('mouseup', handleMouseUp);
+        cap.off('mousedown', handleMouseDown);
+      }
       if (layoutRef.current) {
         layoutRef.current.kill();
         layoutRef.current = null;
