@@ -16,20 +16,26 @@ def test_oracle_client_init():
 def test_init_db_success():
     """Test init_db with mock connection."""
     config = load_config("config.yaml.example")
-    with patch('ragcli.database.oracle_client.OracleClient.get_connection') as mock_get:
+    with patch('oracledb.create_pool'):
+        client = OracleClient(config)
+
+    with patch.object(client, 'get_connection') as mock_get:
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_get.return_value = mock_conn
-        
-        from ragcli.database.schemas import get_create_schemas_sql
-        sqls = get_create_schemas_sql()
-        mock_cursor.execute.side_effect = [None] * len(sqls)
-        
-        client = OracleClient(config)
-        client.init_db()
-        
-        assert mock_conn.commit.called
-        assert mock_cursor.execute.call_count == len(sqls)
 
-# TODO: Add more tests for vector_ops, error cases, retries
+        from ragcli.database.schemas import get_create_schemas_sql
+        sqls = get_create_schemas_sql(config)
+
+        # First call per table: check if table exists (return 0 = doesn't exist)
+        # Then execute CREATE for each table
+        # Then check if vector index exists (return 0)
+        # Total cursor.execute calls: len(sqls) table checks + len(sqls) creates + 1 index check
+        mock_cursor.fetchone.return_value = (0,)  # table/index doesn't exist
+
+        client.init_db()
+
+        assert mock_conn.commit.called
+        # Each table: 1 existence check + 1 create = 2 calls per table, + 1 index check
+        assert mock_cursor.execute.call_count == len(sqls) * 2 + 1
