@@ -38,8 +38,8 @@ def preprocess_document(file_path: str, config: dict, conn=None) -> tuple[str, b
                 text = "\n".join([doc.page_content for doc in docs])
                 return text, False # Assuming Oracle Loader handles OCR if needed but returns text, or we set OCR flag to False/True based on what it did.
                 # If Oracle Loader fails or is not appropriate, fallback.
-        except Exception as e:
-            pass # Fallback
+        except Exception:
+            pass  # Fallback to local processing
 
     file_format = path.suffix.lstrip('.').lower()
     if file_format not in config['documents']['supported_formats']:
@@ -95,7 +95,7 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
             # We still need token counts for metadata
             try:
                 enc = tiktoken.get_encoding("cl100k_base")
-            except:
+            except Exception:
                 enc = None
                 
             for chunk_str in chunks_text:
@@ -111,15 +111,13 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
                 
             return processed_chunks
             
-        except Exception as e:
-            # Fallback to default if Oracle splitter fails
-            # logger.warning(f"Oracle splitter failed, falling back to local: {e}")
-            pass
+        except Exception:
+            pass  # Fallback to local chunking
 
     # Use tiktoken for accurate token counting (GPT-based)
     try:
         enc = tiktoken.get_encoding("cl100k_base")  # GPT-3.5/4 encoding
-    except:
+    except Exception:
         # Fallback to simple word count if tiktoken fails
         enc = None
 

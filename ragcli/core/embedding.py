@@ -128,40 +128,46 @@ def generate_response(
         payload = {
             "model": model,
             "messages": messages,
-            "stream": stream,
-            "temperature": 0.7,  # Default
+            "stream": False,
+            "temperature": 0.7,
         }
         response = requests.post(
             f"{endpoint}/api/chat",
             json=payload,
             timeout=timeout,
-            stream=stream
+        )
+        response.raise_for_status()
+        return response.json()["message"]["content"]
+
+    def _streaming_call():
+        """True streaming using Ollama's native format."""
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.7,
+        }
+        response = requests.post(
+            f"{endpoint}/api/chat",
+            json=payload,
+            timeout=timeout,
+            stream=True
         )
         response.raise_for_status()
 
-        if stream:
-            # For streaming, we need to handle it differently
-            content = ""
-            for line in response.iter_lines():
-                if line:
-                    data = json.loads(line.decode('utf-8').replace("data: ", ""))
-                    if "choices" in data and "delta" in data["choices"][0]:
-                        token = data["choices"][0]["delta"].get("content", "")
-                        content += token
-            return content
-        else:
-            return response.json()["message"]["content"]
+        for line in response.iter_lines():
+            if line:
+                data = json.loads(line.decode('utf-8'))
+                # Ollama native format: {"message": {"content": "token"}, "done": false}
+                token = data.get("message", {}).get("content", "")
+                if token:
+                    yield token
 
     try:
-        result = retry_with_backoff(_api_call, max_retries=3, base_delay=1.0, max_delay=10.0)
         if stream:
-            # Convert back to generator for compatibility
-            def generate_tokens():
-                # Since we collected all content, yield it as one piece
-                # TODO: Implement proper streaming with retries
-                yield result
-            return generate_tokens()
+            return _streaming_call()
         else:
+            result = retry_with_backoff(_api_call, max_retries=3, base_delay=1.0, max_delay=10.0)
             return result
     except Exception as e:
         logger.error(f"Failed to generate response for model {model}", exc_info=True)

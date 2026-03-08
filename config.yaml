@@ -3,25 +3,25 @@ database:
   active_profile: "local"
   profiles:
     local:
-      username: "PDBADMIN"
-      password: "OraclePageIndex123"
-      dsn: "localhost:1521/FREEPDB1"
+      username: "${ORACLE_USERNAME:-PDBADMIN}"
+      password: "${ORACLE_PASSWORD}"
+      dsn: "${ORACLE_DSN:-localhost:1521/FREEPDB1}"
       use_tls: false
       tls_wallet_path: null
       pool_size: 5
     oci:
-      username: "ADMIN"
-      password: "Welcome12345*"
-      dsn: "(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1521)(host=adb.us-phoenix-1.oraclecloud.com))(connect_data=(service_name=g2f4dc3e5463897_mern_tpurgent.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))"
+      username: "${OCI_ORACLE_USERNAME:-ADMIN}"
+      password: "${OCI_ORACLE_PASSWORD}"
+      dsn: "${OCI_ORACLE_DSN}"
       use_tls: true
       tls_wallet_path: null
       pool_size: 10
 
 # Oracle Database 26ai Configuration (legacy, points to active profile)
 oracle:
-  username: "PDBADMIN"
-  password: "OraclePageIndex123"
-  dsn: "localhost:1521/FREEPDB1"
+  username: "${ORACLE_USERNAME:-PDBADMIN}"
+  password: "${ORACLE_PASSWORD}"
+  dsn: "${ORACLE_DSN:-localhost:1521/FREEPDB1}"
   use_tls: false
   tls_wallet_path: null
   pool_size: 5

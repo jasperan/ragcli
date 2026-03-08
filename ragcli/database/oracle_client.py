@@ -63,7 +63,7 @@ class OracleClient:
         try:
             # Create tables if they don't exist
             for table_name, create_sql in tables:
-                cursor.execute(f"SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = '{table_name}'")
+                cursor.execute("SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = :tname", {"tname": table_name})
                 if cursor.fetchone()[0] == 0:
                     cursor.execute(create_sql)
                     created_something = True

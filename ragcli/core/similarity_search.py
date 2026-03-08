@@ -33,7 +33,6 @@ def search_chunks(
         results = search_similar(conn, query_embedding, top_k, min_similarity, document_ids)
     finally:
         conn.close()
-        client.close()
     search_time = time.perf_counter() - search_start
     
     total_time = time.perf_counter() - start_time

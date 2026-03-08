@@ -44,21 +44,20 @@ def insert_document(
         :v_metadata
     )
     """
-    cursor = conn.cursor()
-    cursor.execute(sql, {
-        'v_doc_id': doc_id,
-        'v_filename': filename,
-        'v_file_format': file_format,
-        'v_file_size_bytes': file_size_bytes,
-        'v_extracted_size': extracted_text_size_bytes,
-        'v_chunk_count': chunk_count,
-        'v_total_tokens': total_tokens,
-        'v_dim': embedding_dimension,
-        'v_approx_size': approx_emb_size,
-        'v_ocr': ocr_processed,
-        'v_metadata': metadata_json
-    })
-    conn.commit()
+    with conn.cursor() as cursor:
+        cursor.execute(sql, {
+            'v_doc_id': doc_id,
+            'v_filename': filename,
+            'v_file_format': file_format,
+            'v_file_size_bytes': file_size_bytes,
+            'v_extracted_size': extracted_text_size_bytes,
+            'v_chunk_count': chunk_count,
+            'v_total_tokens': total_tokens,
+            'v_dim': embedding_dimension,
+            'v_approx_size': approx_emb_size,
+            'v_ocr': ocr_processed,
+            'v_metadata': metadata_json
+        })
     return doc_id
 
 def insert_chunk(
@@ -85,20 +84,19 @@ def insert_chunk(
         :v_char_count, :v_start, :v_end, TO_VECTOR(:v_embedding), :v_model
     )
     """
-    cursor = conn.cursor()
-    cursor.execute(sql, {
-        'v_chunk_id': chunk_id,
-        'v_doc_id': doc_id,
-        'v_chunk_num': chunk_number,
-        'v_text': chunk_text,
-        'v_token_count': token_count,
-        'v_char_count': character_count,
-        'v_start': start_pos,
-        'v_end': end_pos,
-        'v_embedding': json.dumps(embedding or []),
-        'v_model': embedding_model
-    })
-    conn.commit()
+    with conn.cursor() as cursor:
+        cursor.execute(sql, {
+            'v_chunk_id': chunk_id,
+            'v_doc_id': doc_id,
+            'v_chunk_num': chunk_number,
+            'v_text': chunk_text,
+            'v_token_count': token_count,
+            'v_char_count': character_count,
+            'v_start': start_pos,
+            'v_end': end_pos,
+            'v_embedding': json.dumps(embedding or []),
+            'v_model': embedding_model
+        })
     return chunk_id
 
 def search_similar(
@@ -129,86 +127,80 @@ def search_similar(
     FETCH FIRST :v_top_k ROWS ONLY
     """
 
-    cursor = conn.cursor()
-    cursor.execute(sql, binds)
-    
-    results = []
-    for row in cursor:
-        score = 1 - row[4]  # Convert distance to similarity (cosine similarity = 1 - distance)
-        if score >= min_similarity:
-            chunk_text_val = str(row[2]) if row[2] else ""
-            # Parse embedding if it's a string, or use as is if it's already a list (depending on driver version/type)
-            # thicker-client might return array.thin returns bytes or string?
-            # Usually vector comes back as array or we need to parse.
-            # python-oracledb for VECTOR type returns array.array('d') or list.
-            # Let's assume it returns a list-like object.
-            db_embedding = row[5]
-            if hasattr(db_embedding, 'tolist'):
-                 embedding_list = db_embedding.tolist()
-            else:
-                 embedding_list = list(db_embedding) if db_embedding else []
+    with conn.cursor() as cursor:
+        cursor.execute(sql, binds)
 
-            results.append({
-                'chunk_id': row[0],
-                'document_id': row[1],
-                'chunk_number': row[3],
-                'text': chunk_text_val,
-                'similarity_score': score,
-                'embedding': embedding_list
-            })
-    
+        results = []
+        for row in cursor:
+            score = 1 - row[4]  # Convert distance to similarity (cosine similarity = 1 - distance)
+            if score >= min_similarity:
+                chunk_text_val = str(row[2]) if row[2] else ""
+                db_embedding = row[5]
+                if hasattr(db_embedding, 'tolist'):
+                    embedding_list = db_embedding.tolist()
+                else:
+                    embedding_list = list(db_embedding) if db_embedding else []
+
+                results.append({
+                    'chunk_id': row[0],
+                    'document_id': row[1],
+                    'chunk_number': row[3],
+                    'text': chunk_text_val,
+                    'similarity_score': score,
+                    'embedding': embedding_list
+                })
+
     return results
 
 
 def create_vector_index(conn: oracledb.Connection, config: Dict[str, Any]) -> None:
     """Create vector index based on chunk count and configuration."""
     # Check if index already exists
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT index_name FROM user_indexes WHERE index_name = 'CHUNKS_EMBEDDING_IDX'")
-        if cursor.fetchone():
-            logger.info("Vector index already exists, skipping creation")
-            return
-    except:
-        pass  # Index doesn't exist, continue
+    with conn.cursor() as cursor:
+        try:
+            cursor.execute("SELECT index_name FROM user_indexes WHERE index_name = 'CHUNKS_EMBEDDING_IDX'")
+            if cursor.fetchone():
+                logger.info("Vector index already exists, skipping creation")
+                return
+        except oracledb.Error:
+            pass  # Table/index metadata query failed, continue to create
 
-    # Get chunk count to determine index type
-    cursor.execute("SELECT COUNT(*) FROM CHUNKS")
-    chunk_count = cursor.fetchone()[0]
+        # Get chunk count to determine index type
+        cursor.execute("SELECT COUNT(*) FROM CHUNKS")
+        chunk_count = cursor.fetchone()[0]
 
-    # Auto-select index type based on chunk count (from spec)
-    if chunk_count <= 1000:
-        index_type = "IVF_FLAT"
-        index_params = ""
-    elif chunk_count <= 100000:
-        index_type = "HNSW"
-        index_params = "WITH (m=16, ef_construction=200)"
-    else:
-        index_type = "HYBRID"
-        index_params = "WITH (m=16, ef_construction=200)"
+        # Auto-select index type based on chunk count (from spec)
+        if chunk_count <= 1000:
+            index_type = "IVF_FLAT"
+            index_params = ""
+        elif chunk_count <= 100000:
+            index_type = "HNSW"
+            index_params = "WITH (m=16, ef_construction=200)"
+        else:
+            index_type = "HYBRID"
+            index_params = "WITH (m=16, ef_construction=200)"
 
-    # Get accuracy from config
-    accuracy = config.get('vector_index', {}).get('accuracy', 95)
+        # Get accuracy from config
+        accuracy = int(config.get('vector_index', {}).get('accuracy', 95))
 
-    # Create index
-    index_sql = f"""
-    CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
-    ON CHUNKS(chunk_embedding)
-    ORGANIZATION CLUSTER
-    WITH TARGET ACCURACY {accuracy}
-    {index_params}
-    DISTANCE METRIC COSINE
-    """
+        # Create index
+        index_sql = f"""
+        CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
+        ON CHUNKS(chunk_embedding)
+        ORGANIZATION CLUSTER
+        WITH TARGET ACCURACY {accuracy}
+        {index_params}
+        DISTANCE METRIC COSINE
+        """
 
-    try:
-        logger.info(f"Creating {index_type} vector index for {chunk_count} chunks")
-        cursor.execute(index_sql)
-        conn.commit()
-        logger.info(f"Vector index created successfully: {index_type}")
-    except Exception as e:
-        logger.error(f"Failed to create vector index: {e}", exc_info=True)
-        # Don't raise - index creation failure shouldn't stop the app
-        conn.rollback()
+        try:
+            logger.info(f"Creating {index_type} vector index for {chunk_count} chunks")
+            cursor.execute(index_sql)
+            conn.commit()
+            logger.info(f"Vector index created successfully: {index_type}")
+        except Exception as e:
+            logger.error(f"Failed to create vector index: {e}", exc_info=True)
+            conn.rollback()
 
 
 def log_query(
@@ -241,37 +233,37 @@ def log_query(
 
     docs_str = ",".join(selected_documents) if selected_documents else None
 
-    cursor = conn.cursor()
-    cursor.execute(sql, {
-        'v_query_id': query_id,
-        'v_query_text': query_text,
-        'v_query_emb': json.dumps(query_embedding),
-        'v_docs': docs_str,
-        'v_top_k': top_k,
-        'v_threshold': similarity_threshold,
-        'v_response': response_text,
-        'v_resp_tokens': response_tokens,
-        'v_emb_time': timing.get('embedding_time_ms', 0),
-        'v_search_time': timing.get('search_time_ms', 0),
-        'v_gen_time': timing.get('generation_time_ms', 0)
-    })
-
-    # Insert query results
-    result_sql = """
-    INSERT INTO QUERY_RESULTS (
-        result_id, query_id, chunk_id, similarity_score, rank
-    ) VALUES (
-        :result_id, :query_id, :chunk_id, :score, :rank
-    )
-    """
-    for rank, result in enumerate(results[:top_k], start=1):
-        cursor.execute(result_sql, {
-            'result_id': generate_id(),
-            'query_id': query_id,
-            'chunk_id': result['chunk_id'],
-            'score': result['similarity_score'],
-            'rank': rank,
+    with conn.cursor() as cursor:
+        cursor.execute(sql, {
+            'v_query_id': query_id,
+            'v_query_text': query_text,
+            'v_query_emb': json.dumps(query_embedding),
+            'v_docs': docs_str,
+            'v_top_k': top_k,
+            'v_threshold': similarity_threshold,
+            'v_response': response_text,
+            'v_resp_tokens': response_tokens,
+            'v_emb_time': timing.get('embedding_time_ms', 0),
+            'v_search_time': timing.get('search_time_ms', 0),
+            'v_gen_time': timing.get('generation_time_ms', 0)
         })
+
+        # Insert query results
+        result_sql = """
+        INSERT INTO QUERY_RESULTS (
+            result_id, query_id, chunk_id, similarity_score, rank
+        ) VALUES (
+            :result_id, :query_id, :chunk_id, :score, :rank
+        )
+        """
+        for rank, result in enumerate(results[:top_k], start=1):
+            cursor.execute(result_sql, {
+                'result_id': generate_id(),
+                'query_id': query_id,
+                'chunk_id': result['chunk_id'],
+                'score': result['similarity_score'],
+                'rank': rank,
+            })
 
     conn.commit()
     return query_id
@@ -288,91 +280,87 @@ def get_embedding_graph(
     Build a graph of chunk embeddings connected by cosine similarity.
     Uses Oracle VECTOR_DISTANCE for server-side similarity computation.
     """
-    cursor = conn.cursor()
-
-    # Step 1: Get nodes (chunks with metadata)
-    node_sql = """
-    SELECT c.chunk_id, c.document_id, d.filename, c.chunk_number,
-           DBMS_LOB.SUBSTR(c.chunk_text, 100, 1) AS text_preview,
-           c.token_count
-    FROM CHUNKS c
-    JOIN DOCUMENTS d ON c.document_id = d.document_id
-    """
-    node_binds = {}
-    if document_ids:
-        doc_binds, placeholders = _build_doc_id_binds(document_ids)
-        node_sql += f" WHERE c.document_id IN ({placeholders})"
-        node_binds.update(doc_binds)
-    node_sql += f" FETCH FIRST {int(limit)} ROWS ONLY"
-
-    cursor.execute(node_sql, node_binds)
-    nodes = []
-    node_ids = set()
-    for row in cursor:
-        text_preview = str(row[4]) if row[4] else ""
-        nodes.append({
-            "id": row[0],
-            "document_id": row[1],
-            "document_name": row[2],
-            "chunk_number": row[3],
-            "text_preview": text_preview,
-            "token_count": row[5] or 0,
-            "node_type": "chunk"
-        })
-        node_ids.add(row[0])
-
-    if len(nodes) < 2:
-        cursor.close()
-        return {"nodes": nodes, "edges": [], "total_chunks": len(nodes)}
-
-    # Step 2: Compute pairwise similarities using VECTOR_DISTANCE
-    # Scope the CROSS JOIN to only the fetched node IDs using a CTE
-    min_distance = 1.0 - min_similarity
-
-    doc_filter = ""
-    edge_binds = {
-        "min_distance": min_distance,
-        "top_k": top_k
-    }
-    if document_ids:
-        doc_binds, placeholders = _build_doc_id_binds(document_ids)
-        doc_filter = f" WHERE c.document_id IN ({placeholders})"
-        edge_binds.update(doc_binds)
-
-    edge_sql = f"""
-    WITH target_chunks AS (
-        SELECT c.chunk_id
+    with conn.cursor() as cursor:
+        # Step 1: Get nodes (chunks with metadata)
+        node_sql = """
+        SELECT c.chunk_id, c.document_id, d.filename, c.chunk_number,
+               DBMS_LOB.SUBSTR(c.chunk_text, 100, 1) AS text_preview,
+               c.token_count
         FROM CHUNKS c
         JOIN DOCUMENTS d ON c.document_id = d.document_id
-        {doc_filter}
-        FETCH FIRST {int(limit)} ROWS ONLY
-    )
-    SELECT source_id, target_id, similarity FROM (
-        SELECT a.chunk_id AS source_id,
-               b.chunk_id AS target_id,
-               (1 - VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE)) AS similarity,
-               ROW_NUMBER() OVER (PARTITION BY a.chunk_id ORDER BY VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) ASC) AS rn
-        FROM CHUNKS a
-        CROSS JOIN CHUNKS b
-        WHERE a.chunk_id < b.chunk_id
-          AND a.chunk_id IN (SELECT chunk_id FROM target_chunks)
-          AND b.chunk_id IN (SELECT chunk_id FROM target_chunks)
-          AND VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) <= :min_distance
-    ) WHERE rn <= :top_k
-    """
+        """
+        node_binds = {}
+        if document_ids:
+            doc_binds, placeholders = _build_doc_id_binds(document_ids)
+            node_sql += f" WHERE c.document_id IN ({placeholders})"
+            node_binds.update(doc_binds)
+        node_sql += f" FETCH FIRST {int(limit)} ROWS ONLY"
 
-    cursor.execute(edge_sql, edge_binds)
-    edges = []
-    for row in cursor:
-        source_id, target_id, similarity = row[0], row[1], row[2]
-        if source_id in node_ids and target_id in node_ids:
-            edges.append({
-                "source": source_id,
-                "target": target_id,
-                "similarity": float(similarity)
+        cursor.execute(node_sql, node_binds)
+        nodes = []
+        node_ids = set()
+        for row in cursor:
+            text_preview = str(row[4]) if row[4] else ""
+            nodes.append({
+                "id": row[0],
+                "document_id": row[1],
+                "document_name": row[2],
+                "chunk_number": row[3],
+                "text_preview": text_preview,
+                "token_count": row[5] or 0,
+                "node_type": "chunk"
             })
+            node_ids.add(row[0])
 
-    cursor.close()
+        if len(nodes) < 2:
+            return {"nodes": nodes, "edges": [], "total_chunks": len(nodes)}
+
+        # Step 2: Compute pairwise similarities using VECTOR_DISTANCE
+        min_distance = 1.0 - min_similarity
+
+        doc_filter = ""
+        edge_binds = {
+            "min_distance": min_distance,
+            "top_k": top_k
+        }
+        if document_ids:
+            doc_binds, placeholders = _build_doc_id_binds(document_ids)
+            doc_filter = f" WHERE c.document_id IN ({placeholders})"
+            edge_binds.update(doc_binds)
+
+        edge_sql = f"""
+        WITH target_chunks AS (
+            SELECT c.chunk_id
+            FROM CHUNKS c
+            JOIN DOCUMENTS d ON c.document_id = d.document_id
+            {doc_filter}
+            FETCH FIRST {int(limit)} ROWS ONLY
+        )
+        SELECT source_id, target_id, similarity FROM (
+            SELECT a.chunk_id AS source_id,
+                   b.chunk_id AS target_id,
+                   (1 - VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE)) AS similarity,
+                   ROW_NUMBER() OVER (PARTITION BY a.chunk_id ORDER BY VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) ASC) AS rn
+            FROM CHUNKS a
+            CROSS JOIN CHUNKS b
+            WHERE a.chunk_id < b.chunk_id
+              AND a.chunk_id IN (SELECT chunk_id FROM target_chunks)
+              AND b.chunk_id IN (SELECT chunk_id FROM target_chunks)
+              AND VECTOR_DISTANCE(a.chunk_embedding, b.chunk_embedding, COSINE) <= :min_distance
+        ) WHERE rn <= :top_k
+        """
+
+        cursor.execute(edge_sql, edge_binds)
+        edges = []
+        for row in cursor:
+            source_id, target_id, similarity = row[0], row[1], row[2]
+            if source_id in node_ids and target_id in node_ids:
+                edges.append({
+                    "source": source_id,
+                    "target": target_id,
+                    "similarity": float(similarity)
+                })
+
     return {"nodes": nodes, "edges": edges, "total_chunks": len(nodes)}
 
 
@@ -399,36 +387,35 @@ def get_query_graph(
     }
     result["nodes"].insert(0, query_node)
 
-    cursor = conn.cursor()
-    sim_sql = """
-    SELECT c.chunk_id,
-           (1 - VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE)) AS similarity
-    FROM CHUNKS c
-    """
-    sim_binds = {"v_query_emb": json.dumps(query_embedding), "v_top_k": top_k}
-    if document_ids:
-        doc_binds, placeholders = _build_doc_id_binds(document_ids)
-        sim_sql += f" WHERE c.document_id IN ({placeholders})"
-        sim_binds.update(doc_binds)
+    with conn.cursor() as cursor:
+        sim_sql = """
+        SELECT c.chunk_id,
+               (1 - VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE)) AS similarity
+        FROM CHUNKS c
+        """
+        sim_binds = {"v_query_emb": json.dumps(query_embedding), "v_top_k": top_k}
+        if document_ids:
+            doc_binds, placeholders = _build_doc_id_binds(document_ids)
+            sim_sql += f" WHERE c.document_id IN ({placeholders})"
+            sim_binds.update(doc_binds)
 
-    sim_sql += """
-    ORDER BY VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) ASC
-    FETCH FIRST :v_top_k ROWS ONLY
-    """
+        sim_sql += """
+        ORDER BY VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) ASC
+        FETCH FIRST :v_top_k ROWS ONLY
+        """
 
-    cursor.execute(sim_sql, sim_binds)
+        cursor.execute(sim_sql, sim_binds)
 
-    node_ids = {n["id"] for n in result["nodes"]}
-    for row in cursor:
-        chunk_id, similarity = row[0], float(row[1])
-        if chunk_id in node_ids and similarity >= min_similarity:
-            result["edges"].append({
-                "source": "query",
-                "target": chunk_id,
-                "similarity": similarity
-            })
+        node_ids = {n["id"] for n in result["nodes"]}
+        for row in cursor:
+            chunk_id, similarity = row[0], float(row[1])
+            if chunk_id in node_ids and similarity >= min_similarity:
+                result["edges"].append({
+                    "source": "query",
+                    "target": chunk_id,
+                    "similarity": similarity
+                })
 
-    cursor.close()
     return result
 
 

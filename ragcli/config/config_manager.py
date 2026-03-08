@@ -3,23 +3,12 @@
 import yaml
 import os
 from typing import Dict, Any, Optional
-from copy import deepcopy
 from .defaults import DEFAULT_CONFIG, REQUIRED_FIELDS
-from ..utils.helpers import parse_env_vars
+from ..utils.helpers import parse_env_vars, deep_merge
 from ..utils.validators import validate_config as validate_config_values
 
 class ConfigValidationError(Exception):
     """Raised when configuration is invalid."""
-
-def merge_dicts(default: Dict, override: Dict) -> Dict:
-    """Deep merge override into default."""
-    merged = deepcopy(default)
-    for k, v in override.items():
-        if isinstance(v, dict) and k in merged and isinstance(merged[k], dict):
-            merged[k] = merge_dicts(merged[k], v)
-        else:
-            merged[k] = v
-    return merged
 
 def validate_config(config: Dict) -> None:
     """Validate the merged configuration."""
@@ -71,7 +60,7 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     substituted = parse_env_vars(loaded_config)
 
     # Merge with defaults
-    merged_config = merge_dicts(DEFAULT_CONFIG, substituted)
+    merged_config = deep_merge(DEFAULT_CONFIG, substituted)
 
     # Validate
     validate_config(merged_config)
