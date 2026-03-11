@@ -47,6 +47,29 @@ See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for links
 
 ## Installation
 
+<!-- one-command-install -->
+> **One-command install** — clone, configure, and run in a single step:
+>
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/jasperan/ragcli/main/install.sh | bash
+> ```
+>
+> <details><summary>Advanced options</summary>
+>
+> Override install location:
+> ```bash
+> PROJECT_DIR=/opt/myapp curl -fsSL https://raw.githubusercontent.com/jasperan/ragcli/main/install.sh | bash
+> ```
+>
+> Or install manually:
+> ```bash
+> git clone https://github.com/jasperan/ragcli.git
+> cd ragcli
+> # See below for setup instructions
+> ```
+> </details>
+
+
 ### From Source (Recommended)
 
 ```bash
@@ -126,14 +149,14 @@ python ragcli.py
    ╚════════════════════════════════════════════════════════════════╝
 
    Select Objective:
-    [1]  Ingest: Document Upload     
-    [2]  Inquiry: Contextual Ask     
-    [3]  Knowledge: Manage Assets    
+    [1]  Ingest: Document Upload
+    [2]  Inquiry: Contextual Ask
+    [3]  Knowledge: Manage Assets
     [4]  Insight: Chain Visualization
-    [5]  Authority: DB Orchestration 
-    [6]  Health: System Status       
-    [7]  Audit: Integration Tests    
-    [0]  Terminate Session           
+    [5]  Authority: DB Orchestration
+    [6]  Health: System Status
+    [7]  Audit: Integration Tests
+    [0]  Terminate Session
    ```
 
 - Type `help` for classic commands.
@@ -270,7 +293,7 @@ When running `upload` without arguments (or selecting "Ingest" from the menu), r
 #### Detailed Status & Monitoring
 ```bash
 python ragcli.py status --verbose
-# ragcli Status 
+# ragcli Status
 # ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ Component ┃ Status ┃ Details ┃
 # ┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -288,7 +311,7 @@ python ragcli.py status --verbose
 
 ```bash
 python ragcli.py db browse --table DOCUMENTS --limit 20
-# DOCUMENTS (Rows 1-5 of 6) 
+# DOCUMENTS (Rows 1-5 of 6)
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ ID ┃ Filename ┃ Format ┃ Size (KB) ┃ Chunks ┃ Tokens ┃ Uploaded ┃
 # ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
