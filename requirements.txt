@@ -17,6 +17,7 @@ scikit-learn
 psutil
 pypdf2
 pdfplumber
+watchdog
 
 # FastAPI and API server
 fastapi
