@@ -43,6 +43,7 @@ class QueryRequest(BaseModel):
     min_similarity: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Minimum similarity score")
     stream: bool = Field(False, description="Enable streaming response")
     include_embeddings: bool = Field(False, description="Include vector embeddings in response")
+    session_id: Optional[str] = Field(None, description="Session ID for conversational RAG")
 
 
 class ChunkResult(BaseModel):
@@ -61,6 +62,8 @@ class QueryResponse(BaseModel):
     chunks: List[ChunkResult]
     query_embedding: Optional[List[float]] = None
     metrics: Dict[str, Any]
+    session_id: Optional[str] = None
+    trace_id: Optional[str] = None
 
 
 class OllamaModel(BaseModel):
@@ -146,3 +149,122 @@ class GraphQueryRequest(BaseModel):
     document_ids: Optional[List[str]] = None
     limit: int = Field(500, ge=1, le=5000)
 
+
+# --- Feedback Models ---
+
+class FeedbackRequest(BaseModel):
+    """Request to submit feedback."""
+    query_id: Optional[str] = None
+    chunk_id: Optional[str] = None
+    target_type: str = Field(..., description="'answer' or 'chunk'")
+    rating: int = Field(..., ge=-1, le=1, description="-1, 0, or +1")
+    comment: Optional[str] = None
+
+
+class FeedbackStatsResponse(BaseModel):
+    """Feedback statistics."""
+    total_feedback: int
+    avg_rating: float
+    total_chunk_feedback: int
+    total_answer_feedback: int
+
+
+# --- Eval Models ---
+
+class EvalRunRequest(BaseModel):
+    """Request to trigger an eval run."""
+    eval_mode: str = Field("synthetic", description="synthetic, replay, or live")
+    document_id: Optional[str] = None
+
+
+class EvalRunResponse(BaseModel):
+    """Eval run summary."""
+    run_id: str
+    eval_mode: str
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    avg_faithfulness: Optional[float] = None
+    avg_relevance: Optional[float] = None
+    avg_context_precision: Optional[float] = None
+    avg_context_recall: Optional[float] = None
+    total_pairs: int = 0
+
+
+class EvalRunListResponse(BaseModel):
+    """List of eval runs."""
+    runs: List[EvalRunResponse]
+
+
+# --- Sync Models ---
+
+class SyncSourceRequest(BaseModel):
+    """Request to add a sync source."""
+    source_type: str = Field(..., description="directory, git, or url")
+    path: str = Field(..., description="Path or URL to sync")
+    glob_pattern: Optional[str] = None
+    poll_interval: Optional[int] = Field(300, ge=10)
+
+
+class SyncSourceResponse(BaseModel):
+    """Sync source info."""
+    source_id: str
+    source_type: str
+    source_path: str
+    glob_pattern: Optional[str] = None
+    poll_interval: int = 300
+    enabled: bool = True
+    last_sync: Optional[datetime] = None
+
+
+class SyncSourceListResponse(BaseModel):
+    """List of sync sources."""
+    sources: List[SyncSourceResponse]
+
+
+class SyncEventResponse(BaseModel):
+    """Sync event info."""
+    event_id: str
+    source_id: str
+    file_path: str
+    event_type: str
+    document_id: Optional[str] = None
+    chunks_added: int = 0
+    chunks_removed: int = 0
+    chunks_unchanged: int = 0
+    processed_at: Optional[datetime] = None
+
+
+class SyncEventListResponse(BaseModel):
+    """List of sync events."""
+    events: List[SyncEventResponse]
+
+
+# --- Session Models ---
+
+class SessionResponse(BaseModel):
+    """Session info."""
+    session_id: str
+    created_at: Optional[datetime] = None
+    last_active: Optional[datetime] = None
+    title: Optional[str] = None
+    summary: Optional[str] = None
+
+
+class SessionListResponse(BaseModel):
+    """List of sessions."""
+    sessions: List[SessionResponse]
+
+
+class SessionTurnResponse(BaseModel):
+    """Session turn info."""
+    turn_id: str
+    turn_number: int
+    user_query: str
+    rewritten_query: Optional[str] = None
+    response_text: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class SessionTurnListResponse(BaseModel):
+    """List of session turns."""
+    turns: List[SessionTurnResponse]

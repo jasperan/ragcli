@@ -37,10 +37,29 @@ from .models import (
     GraphEdge,
     GraphMetadata,
     EmbeddingGraphResponse,
-    GraphQueryRequest
+    GraphQueryRequest,
+    FeedbackRequest,
+    FeedbackStatsResponse,
+    EvalRunRequest,
+    EvalRunResponse,
+    EvalRunListResponse,
+    SyncSourceRequest,
+    SyncSourceResponse,
+    SyncSourceListResponse,
+    SyncEventResponse,
+    SyncEventListResponse,
+    SessionResponse,
+    SessionListResponse,
+    SessionTurnResponse,
+    SessionTurnListResponse,
 )
 from ragcli.database.vector_ops import get_embedding_graph, get_query_graph
 from ragcli.core.embedding import generate_embedding
+from ragcli.feedback.collector import FeedbackCollector
+from ragcli.feedback.analyzer import FeedbackAnalyzer
+from ragcli.eval.runner import EvalRunner
+from ragcli.sync.scheduler import SyncScheduler
+from ragcli.memory.session import SessionManager
 
 logger = get_logger(__name__)
 
@@ -248,7 +267,8 @@ async def query_endpoint(request: QueryRequest):
             min_similarity=request.min_similarity,
             config=config,
             stream=False,
-            include_embeddings=request.include_embeddings
+            include_embeddings=request.include_embeddings,
+            session_id=request.session_id,
         )
 
         chunks = [
@@ -267,7 +287,9 @@ async def query_endpoint(request: QueryRequest):
             response=result['response'],
             chunks=chunks,
             query_embedding=result.get('query_embedding'),
-            metrics=result['metrics']
+            metrics=result['metrics'],
+            session_id=result.get('session_id'),
+            trace_id=result.get('trace_id'),
         )
 
     except HTTPException:
@@ -450,6 +472,272 @@ async def get_query_graph_endpoint(request: GraphQueryRequest):
     except Exception as e:
         logger.error(f"Failed to build query graph: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to build query graph. Check server logs for details.")
+    finally:
+        conn.close()
+
+
+# --- Feedback Endpoints ---
+
+@app.post("/api/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    """Submit answer or chunk feedback."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        collector = FeedbackCollector(conn)
+        if request.target_type == "answer":
+            collector.submit_answer_feedback(request.query_id, request.rating, request.comment)
+        elif request.target_type == "chunk":
+            collector.submit_chunk_feedback(request.query_id, request.chunk_id, request.rating, request.comment)
+        else:
+            raise HTTPException(status_code=400, detail="target_type must be 'answer' or 'chunk'")
+        return {"message": "Feedback submitted", "target_type": request.target_type}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to submit feedback: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to submit feedback.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/feedback/stats", response_model=FeedbackStatsResponse)
+async def get_feedback_stats():
+    """Get feedback statistics."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        collector = FeedbackCollector(conn)
+        stats = collector.get_feedback_stats()
+        return FeedbackStatsResponse(**stats)
+    except Exception as e:
+        logger.error(f"Failed to get feedback stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get feedback stats.")
+    finally:
+        conn.close()
+
+
+# --- Eval Endpoints ---
+
+@app.post("/api/eval/run", response_model=EvalRunResponse)
+async def trigger_eval_run(request: EvalRunRequest):
+    """Trigger an evaluation run."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        runner = EvalRunner(conn, config)
+        run_id = runner.create_run(request.eval_mode)
+        run_data = runner.get_run(run_id)
+        return EvalRunResponse(
+            run_id=run_data['run_id'],
+            eval_mode=run_data['eval_mode'],
+            started_at=run_data.get('started_at'),
+            total_pairs=run_data.get('total_pairs', 0)
+        )
+    except Exception as e:
+        logger.error(f"Failed to trigger eval run: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to trigger eval run.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/eval/runs", response_model=EvalRunListResponse)
+async def list_eval_runs():
+    """List evaluation runs."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        runner = EvalRunner(conn, config)
+        runs = runner.list_runs()
+        return EvalRunListResponse(
+            runs=[EvalRunResponse(
+                run_id=r['run_id'],
+                eval_mode=r['eval_mode'],
+                started_at=r.get('started_at'),
+                completed_at=r.get('completed_at'),
+                avg_faithfulness=r.get('avg_faithfulness'),
+                avg_relevance=r.get('avg_relevance'),
+                avg_context_precision=r.get('avg_context_precision'),
+                avg_context_recall=r.get('avg_context_recall'),
+                total_pairs=r.get('total_pairs', 0)
+            ) for r in runs]
+        )
+    except Exception as e:
+        logger.error(f"Failed to list eval runs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list eval runs.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/eval/runs/{run_id}")
+async def get_eval_run(run_id: str):
+    """Get evaluation run details with results."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        runner = EvalRunner(conn, config)
+        run_data = runner.get_run(run_id)
+        if not run_data:
+            raise HTTPException(status_code=404, detail="Eval run not found")
+        results = runner.get_run_results(run_id)
+        return {"run": run_data, "results": results}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get eval run: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get eval run.")
+    finally:
+        conn.close()
+
+
+# --- Sync Endpoints ---
+
+@app.post("/api/sync/sources", response_model=SyncSourceResponse)
+async def add_sync_source(request: SyncSourceRequest):
+    """Add a sync source."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        scheduler = SyncScheduler(conn, config.get('sync', {}))
+        source_id = scheduler.add_source(
+            source_type=request.source_type,
+            path=request.path,
+            glob_pattern=request.glob_pattern,
+            poll_interval=request.poll_interval
+        )
+        source = scheduler.get_source(source_id)
+        return SyncSourceResponse(
+            source_id=source['source_id'],
+            source_type=source['source_type'],
+            source_path=source['source_path'],
+            glob_pattern=source.get('glob_pattern'),
+            poll_interval=source.get('poll_interval', 300),
+            enabled=bool(source.get('enabled', 1)),
+        )
+    except Exception as e:
+        logger.error(f"Failed to add sync source: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to add sync source.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/sync/sources", response_model=SyncSourceListResponse)
+async def list_sync_sources():
+    """List sync sources."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        scheduler = SyncScheduler(conn, config.get('sync', {}))
+        sources = scheduler.list_sources()
+        return SyncSourceListResponse(
+            sources=[SyncSourceResponse(
+                source_id=s['source_id'],
+                source_type=s['source_type'],
+                source_path=s['source_path'],
+                glob_pattern=s.get('glob_pattern'),
+                poll_interval=s.get('poll_interval', 300),
+                enabled=bool(s.get('enabled', 1)),
+                last_sync=s.get('last_sync'),
+            ) for s in sources]
+        )
+    except Exception as e:
+        logger.error(f"Failed to list sync sources: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list sync sources.")
+    finally:
+        conn.close()
+
+
+@app.delete("/api/sync/sources/{source_id}")
+async def remove_sync_source(source_id: str):
+    """Remove a sync source."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        scheduler = SyncScheduler(conn, config.get('sync', {}))
+        scheduler.remove_source(source_id)
+        return {"message": "Sync source removed", "source_id": source_id}
+    except Exception as e:
+        logger.error(f"Failed to remove sync source: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to remove sync source.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/sync/events", response_model=SyncEventListResponse)
+async def list_sync_events(limit: int = Query(50, ge=1, le=500)):
+    """List recent sync events."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        scheduler = SyncScheduler(conn, config.get('sync', {}))
+        events = scheduler.get_recent_events(limit=limit)
+        return SyncEventListResponse(
+            events=[SyncEventResponse(
+                event_id=e['event_id'],
+                source_id=e['source_id'],
+                file_path=e['file_path'],
+                event_type=e['event_type'],
+                document_id=e.get('document_id'),
+                chunks_added=e.get('chunks_added', 0),
+                chunks_removed=e.get('chunks_removed', 0),
+                chunks_unchanged=e.get('chunks_unchanged', 0),
+                processed_at=e.get('processed_at'),
+            ) for e in events]
+        )
+    except Exception as e:
+        logger.error(f"Failed to list sync events: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list sync events.")
+    finally:
+        conn.close()
+
+
+# --- Session Endpoints ---
+
+@app.get("/api/sessions", response_model=SessionListResponse)
+async def list_sessions():
+    """List all sessions."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        session_mgr = SessionManager(conn)
+        sessions = session_mgr.list_sessions()
+        return SessionListResponse(
+            sessions=[SessionResponse(
+                session_id=s['session_id'],
+                created_at=s.get('created_at'),
+                last_active=s.get('last_active'),
+                title=s.get('title'),
+                summary=s.get('summary'),
+            ) for s in sessions]
+        )
+    except Exception as e:
+        logger.error(f"Failed to list sessions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list sessions.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/sessions/{session_id}/turns", response_model=SessionTurnListResponse)
+async def get_session_turns(session_id: str, limit: int = Query(50, ge=1, le=500)):
+    """Get turns for a session."""
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        session_mgr = SessionManager(conn)
+        turns = session_mgr.get_recent_turns(session_id, limit=limit)
+        return SessionTurnListResponse(
+            turns=[SessionTurnResponse(
+                turn_id=t.get('turn_id', ''),
+                turn_number=t.get('turn_number', 0),
+                user_query=t.get('user_query', ''),
+                rewritten_query=t.get('rewritten_query'),
+                response_text=t.get('response', ''),
+                created_at=t.get('created_at'),
+            ) for t in turns]
+        )
+    except Exception as e:
+        logger.error(f"Failed to get session turns: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get session turns.")
     finally:
         conn.close()
 
