@@ -12,7 +12,7 @@ ollama:
   endpoint: "http://localhost:11434"  # API endpoint URL
   auto_detect_models: true            # Auto-refresh model list on startup
   embedding_model: "nomic-embed-text" # Embedding model name
-  chat_model: "gemma3:270m"                # Chat model name
+  chat_model: "qwen3.5:35b-a3b"             # Chat model name (MoE: 35B total / 3B active)
   fallback_embedding_models:          # Fallback options if primary unavailable
     - "all-minilm"
     - "mxbai-embed-large"
@@ -70,3 +70,52 @@ app:
   app_name: "ragcli"
   version: "1.0.0"
   debug: false
+
+# Search Configuration
+search:
+  strategy: "hybrid"              # hybrid | vector_only | bm25_only
+  rrf_k: 60                       # RRF constant
+  weights:
+    bm25: 1.0
+    vector: 1.0
+    graph: 0.8
+  use_router: true                # Auto-select signals per query
+
+# Session Memory
+memory:
+  session_timeout_min: 30
+  max_recent_turns: 5
+  summarize_every: 5
+  max_summary_tokens: 300
+
+# Knowledge Graph
+knowledge_graph:
+  enabled: true
+  extraction_model: null          # null = use chat_model
+  max_entities_per_chunk: 10
+  dedup_threshold: 0.9            # Entity dedup similarity threshold
+  max_hops: 2                     # Graph traversal depth
+
+# Feedback
+feedback:
+  enabled: true
+  quality_boost_range: 0.15       # Max boost/penalty from chunk quality
+  recalibrate_after: 50           # Recalibrate weights after N feedback events
+
+# Evaluation
+evaluation:
+  pairs_per_chunk: 2
+  max_chunks_per_doc: 20
+  live_scoring: false             # Score every query in real-time
+
+# Live Sync
+sync:
+  enabled: false
+  default_poll_interval: 300
+  debounce_seconds: 2
+  max_file_size_mb: 50
+  supported_formats:
+    - pdf
+    - md
+    - txt
+    - rst
