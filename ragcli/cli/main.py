@@ -19,6 +19,8 @@ from .commands.status import app as status_app
 from .commands.status import app as status_app
 from .commands.models import app as models_app
 from .commands.oracle_test import app as oracle_test_app
+from .commands.eval_cmd import app as eval_app
+from .commands.sync_cmd import app as sync_app
 from ..config.config_manager import load_config
 
 # Import commands for direct execution
@@ -38,6 +40,8 @@ app.add_typer(export_app, name="export")
 app.add_typer(db_app, name="db")
 app.add_typer(models_app, name="models")
 app.add_typer(oracle_test_app, name="oracle-test")
+app.add_typer(eval_app, name="eval")
+app.add_typer(sync_app, name="sync")
 
 # Expose commands directly
 from .commands.upload import add as upload_cmd
@@ -90,13 +94,13 @@ def print_header():
     clear_screen()
     config = load_config()
     version = config.get('app', {}).get('version', '1.0.0')
-    
+
     # Premium Gemini-style header
-    
+
     header_content = f"""
 [bold #a855f7]r[/bold #a855f7][bold #9333ea]a[/bold #9333ea][bold #7e22ce]g[/bold #7e22ce][bold #6b21a8]c[/bold #6b21a8][bold #581c87]l[/bold #581c87][bold #4c1d95]i[/bold #4c1d95] [dim bold grey50]Command Center[/]
     """
-    
+
     console.print(Panel(
         header_content.strip(),
         style="bold white",
@@ -109,14 +113,14 @@ def print_header():
 def menu_documents():
     while True:
         print_header()
-        
+
         choices = [
             {"name": "List all documents", "value": "1"},
             {"name": "Delete a document", "value": "2"},
             questionary.Separator(),
             {"name": "Main Menu", "value": "0"}
         ]
-        
+
         choice = questionary.select(
             "   Document Intelligence",
             choices=choices,
@@ -124,7 +128,7 @@ def menu_documents():
             use_arrow_keys=True,
             pointer="›"
         ).ask()
-        
+
         if not choice or choice == "0":
             return
         elif choice == "1":
@@ -142,7 +146,7 @@ def menu_documents():
 def menu_db():
     while True:
         print_header()
-        
+
         choices = [
             {"name": "Initialize Core Schema (Schemas & Indices)", "value": "1"},
             {"name": "Insight: Browse Tables", "value": "2"},
@@ -151,7 +155,7 @@ def menu_db():
             questionary.Separator(),
             {"name": "Main Menu", "value": "0"}
         ]
-        
+
         choice = questionary.select(
             "   Database Autonomy",
             choices=choices,
@@ -159,7 +163,7 @@ def menu_db():
             use_arrow_keys=True,
             pointer="›"
         ).ask()
-        
+
         if not choice or choice == "0":
             return
         elif choice == "1":
@@ -200,14 +204,14 @@ def menu_visualize():
     from .commands.visualize import visual_query as visual_query_cmd
     print_header()
     console.print("   [bold #a855f7]Visual Analytics[/bold #a855f7]")
-    
+
     choices = [
         {"name": "Chain Visualization (Tokenization + Embedding)", "value": "1"},
         {"name": "Visual Query (Similarity Search)", "value": "2"},
         questionary.Separator(),
         {"name": "Main Menu", "value": "0"}
     ]
-    
+
     choice = questionary.select(
         "   Select visualization type:",
         choices=choices,
@@ -215,7 +219,7 @@ def menu_visualize():
         use_arrow_keys=True,
         pointer="›"
     ).ask()
-    
+
     if not choice or choice == "0":
         return
     elif choice == "1":
@@ -238,7 +242,7 @@ def run_repl():
     """Run the interactive mode with premium Gemini-style UI."""
     while True:
         print_header()
-        
+
         choices = [
             {"name": "Ingest: Document Upload", "value": "1"},
             {"name": "Inquiry: Contextual Ask", "value": "2"},
@@ -250,7 +254,7 @@ def run_repl():
             questionary.Separator(),
             {"name": "Terminate Session", "value": "0"}
         ]
-        
+
         choice = questionary.select(
             "   Select Objective:",
             choices=choices,
@@ -258,7 +262,7 @@ def run_repl():
             use_arrow_keys=True,
             pointer="›"
         ).ask()
-        
+
         try:
             if not choice or choice == "0":
                 console.print("\n   [bold #a855f7]Session terminated. Farewell.[/bold #a855f7]")
@@ -282,17 +286,17 @@ def run_repl():
                 input("\n   [Press Enter to return]")
             elif choice == "7":
                 menu_oracle_tests()
-            
+
         except Exception as e:
             console.print(f"\n   [bold red]Critical Anomaly Detected:[/bold red] {e}")
             input("\n   [Press Enter to return]")
 
 def menu_oracle_tests():
     from .commands.oracle_test import loader, splitter, summary, embedding, all as test_all
-    
+
     while True:
         print_header()
-        
+
         choices = [
             {"name": "Verify: Document Loader", "value": "1"},
             {"name": "Verify: Text Splitter", "value": "2"},
@@ -302,7 +306,7 @@ def menu_oracle_tests():
             questionary.Separator(),
             {"name": "Main Menu", "value": "0"}
         ]
-        
+
         choice = questionary.select(
             "   Oracle AI Integration Testing",
             choices=choices,
@@ -310,7 +314,7 @@ def menu_oracle_tests():
             use_arrow_keys=True,
             pointer="›"
         ).ask()
-        
+
         if not choice or choice == "0":
             return
         elif choice == "1":
