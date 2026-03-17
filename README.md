@@ -1,6 +1,24 @@
 # ragcli: a friendly interface to Oracle Autonomous 26ai
 
-An aesthetic, production-ready RAG system using **Oracle Database 26ai** for vector search and **Ollama** for local LLM inference.
+<div align="center">
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Oracle 26ai](https://img.shields.io/badge/Oracle-26ai_Free-F80000.svg?style=for-the-badge&logo=oracle&logoColor=white)](https://www.oracle.com/database/free/)
+[![Ollama](https://img.shields.io/badge/LLM-Ollama-000000.svg?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![PyPI](https://img.shields.io/badge/PyPI-oracle--ragcli-blue.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ragcli/)
+[![Version](https://img.shields.io/badge/version-2.0.1-brightgreen.svg?style=for-the-badge)](https://github.com/jasperan/ragcli/releases)
+[![Tests](https://img.shields.io/badge/tests-152_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+</div>
+
+A production-ready RAG system using **Oracle Database 26ai** for vector search and **Ollama** for local LLM inference. Ships with multi-agent reasoning, knowledge graph extraction, hybrid search, feedback loops, session memory, evaluation suite, and live document sync.
+
+```bash
+pip install oracle-ragcli
+```
 
 ![](./img/1.png)
 
@@ -15,9 +33,11 @@ Interactive Jupyter notebooks demonstrating ragcli capabilities:
 ## Architecture
 
 1. **Frontend**: React (Vite) + TailwindCSS
-2. **Backend**: FastAPI
-3. **Database**: Oracle Database 26ai Free (Vector Store)
-4. **LLM**: Ollama (Local Inference)
+2. **Backend**: FastAPI (25 endpoints)
+3. **Database**: Oracle Database 26ai Free (17 tables, vector + graph store)
+4. **LLM**: Ollama (local inference, multi-agent CoT pipeline)
+5. **Search**: Hybrid BM25 + Vector + Knowledge Graph with RRF fusion
+6. **Memory**: Multi-turn session management with query rewriting
 
 ## Features
 

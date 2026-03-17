@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="oracle-ragcli",
-    version="2.0.0",
+    version="2.0.1",
     author="jasperan",
     author_email="dev@example.com",
     description="Production RAG system with multi-agent reasoning, knowledge graph, and hybrid search for Oracle DB 26ai",
