@@ -21,16 +21,28 @@ Interactive Jupyter notebooks demonstrating ragcli capabilities:
 
 ## Features
 
-- 🚀 **Oracle Database 26ai**: AI Vector Search integration
-- 🤖 **Ollama Integration**: Defaulting to the efficient `gemma3:270m` for chat
-- 📊 **Real-time Visualization**: Dynamic vector space visualization and heatmap of search calculations
-- 📄 **Document Processing**: Support for PDF, Markdown, and Text
-- ⚡ **FastAPI Backend**: Robust API with streaming support
-- 🎨 **Modern UI**: React + Tailwind + Vite frontend with modern aesthetics and fluid animations
-- **Ollama Auto-Detection**: Automatically detect and validate all available Ollama models
-- **Core**: Chunking (1000 tokens, 10% overlap), auto vector indexing (HNSW/IVF), metadata tracking, logging/metrics
-- **Visualizations**: CLI-based visualizations and Plotly charts for retrieval analysis
-- **Deployment**: PyPI, Docker Compose, standalone binary
+### v2.0 — Graph-Augmented, Self-Improving Knowledge Engine
+
+| Feature | What it does |
+|---------|-------------|
+| **Multi-Agent CoT** | 4-agent reasoning pipeline (Planner, Researcher, Reasoner, Synthesizer) with full trace storage |
+| **Knowledge Graph** | LLM-powered entity/relationship extraction, Oracle graph store, multi-hop traversal |
+| **Hybrid Search** | BM25 + Vector + Graph signals fused with Reciprocal Rank Fusion (RRF) |
+| **Feedback Loops** | Wilson score chunk quality, graph edge tuning, search weight adjustment |
+| **Session Memory** | Multi-turn conversations, query rewriting, rolling summarization |
+| **Eval Suite** | Synthetic Q&A generation, 4 LLM-judged metrics (faithfulness, relevance, precision, recall) |
+| **Live Sync** | Watchdog file monitoring, git polling, URL polling, diff-chunking |
+
+### Core
+
+- **Oracle Database 26ai**: AI Vector Search with HNSW/IVF auto-indexing
+- **Ollama**: Local LLM inference (default: `qwen3.5:35b-a3b` for chat, `nomic-embed-text` for embeddings)
+- **25 API endpoints**: Documents, query, models, feedback, eval, sync, sessions
+- **9 CLI commands**: `ragcli eval synthetic|replay|report|runs`, `ragcli sync add|list|status|remove|events`
+- **17 database tables**: Documents, chunks, queries, sessions, knowledge graph, traces, feedback, eval, sync
+- **React frontend**: Google-style search, drag-drop upload, animated vector heatmaps
+- **Document processing**: PDF, Markdown, Text with configurable chunking (1000 tokens, 10% overlap)
+- **Deployment**: PyPI (`pip install ragcli`), Docker Compose, standalone binary
 
 ![](./img/2.png)
 
@@ -145,7 +157,7 @@ python ragcli.py
    ```
    ╔════════════════════════════════════════════════════════════════╗
    ║                 RAGCLI INTERFACE                               ║
-   ║        Oracle DB 26ai RAG System v1.0.0                        ║
+   ║        Oracle DB 26ai RAG System v2.0.0                        ║
    ╚════════════════════════════════════════════════════════════════╝
 
    Select Objective:
@@ -198,6 +210,15 @@ python ragcli.py ask "Summarize the document" --show-chain
 - `python ragcli.py status --verbose` - Detailed vector statistics
 - `python ragcli.py db browse --table DOCUMENTS` - Browse database tables
 - `python ragcli.py db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
+- `python ragcli.py eval synthetic` - Generate synthetic Q&A pairs and evaluate
+- `python ragcli.py eval replay` - Re-run past queries through current pipeline
+- `python ragcli.py eval report` - Display evaluation report
+- `python ragcli.py eval runs` - List all evaluation runs
+- `python ragcli.py sync add /path/to/docs --pattern "*.md"` - Watch a directory
+- `python ragcli.py sync add ~/git/project --type git` - Watch a git repo
+- `python ragcli.py sync list` - List sync sources
+- `python ragcli.py sync status` - Show sync overview
+- `python ragcli.py sync events` - Recent sync events
 - See `python ragcli.py --help` for full options.
 
 Premium Web Interface The project includes a stunning, minimalist frontend inspired by Google AI Studio.
@@ -223,10 +244,21 @@ Premium Web Interface The project includes a stunning, minimalist frontend inspi
 - **API Endpoints**:
 - `POST /api/documents/upload` - Upload documents
 - `GET /api/documents` - List documents
-- `POST /api/query` - RAG query with streaming
+- `POST /api/query` - RAG query (supports `session_id` for multi-turn)
 - `GET /api/models` - List Ollama models
 - `GET /api/status` - System health
 - `GET /api/stats` - Database statistics
+- `POST /api/feedback` - Submit answer/chunk feedback
+- `GET /api/feedback/stats` - Feedback quality trends
+- `POST /api/eval/run` - Trigger evaluation run
+- `GET /api/eval/runs` - List eval runs
+- `GET /api/eval/runs/{id}` - Run details with results
+- `POST /api/sync/sources` - Add sync source
+- `GET /api/sync/sources` - List sync sources
+- `DELETE /api/sync/sources/{id}` - Remove sync source
+- `GET /api/sync/events` - Recent sync events
+- `GET /api/sessions` - List sessions
+- `GET /api/sessions/{id}/turns` - Session history
 
 
 ### Configuration
@@ -236,7 +268,7 @@ Edit `config.yaml`:
 oracle:
 dsn: "localhost:1521/FREEPDB1"
 username: "rag_user"
-password: "your_password"
+password: "${ORACLE_PASSWORD}"
 
 ollama:
 endpoint: "http://localhost:11434"
@@ -245,6 +277,12 @@ chat_model: "gemma3:270m"
 - **api**: Host, port (8000), CORS origins, Swagger docs.
 - **documents**: Chunk size (1000), overlap (10%), max size (100MB).
 - **rag**: Top-k (5), min similarity (0.5).
+- **search**: Strategy (hybrid), RRF k (60), signal weights (bm25, vector, graph).
+- **memory**: Session timeout (30min), max recent turns (5), summarize interval.
+- **knowledge_graph**: Enabled, max entities per chunk (10), dedup threshold (0.9), max hops (2).
+- **feedback**: Quality boost range (0.15), recalibrate threshold (50).
+- **evaluation**: Pairs per chunk (2), max chunks per doc (20), live scoring toggle.
+- **sync**: Poll interval (300s), debounce (2s), max file size (50MB).
 - **logging**: Level (INFO), file rotation, detailed metrics.
 
 Safe loading handles env vars (e.g., `${ORACLE_PASSWORD}`) and validation.

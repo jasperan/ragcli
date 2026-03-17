@@ -4,14 +4,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="ragcli",
-    version="1.0.0",
-    author="ragcli Developers",
+    name="oracle-ragcli",
+    version="2.0.0",
+    author="jasperan",
     author_email="dev@example.com",
-    description="RAG CLI and Web UI for Oracle DB 26ai",
+    description="Production RAG system with multi-agent reasoning, knowledge graph, and hybrid search for Oracle DB 26ai",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/user/ragcli",
+    url="https://github.com/jasperan/ragcli",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -33,6 +33,9 @@ setup(
         "langchain-community>=0.0.20",
         "pypdf2>=3.0.1",
         "pdfplumber>=0.10.3",
+        "fastapi>=0.104.0",
+        "uvicorn>=0.24.0",
+        "watchdog>=3.0.0",
     ],
     extras_require={
         "dev": [
