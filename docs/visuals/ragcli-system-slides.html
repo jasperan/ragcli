@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ragcli project slides</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===========================================
+       THEME VARIABLES — swiss-modern / paper signal
+       =========================================== */
+    :root {
+      --bg-primary: #f3ede6;
+      --bg-secondary: #fffaf5;
+      --bg-panel: rgba(255, 250, 245, 0.94);
+      --bg-soft: rgba(240, 226, 211, 0.75);
+      --text-primary: #191612;
+      --text-secondary: #665b52;
+      --accent: #c74d32;
+      --accent-dark: #913321;
+      --accent-soft: rgba(199, 77, 50, 0.12);
+      --ink-line: rgba(25, 22, 18, 0.08);
+      --border: rgba(25, 22, 18, 0.1);
+      --shadow: 0 16px 40px rgba(25, 22, 18, 0.12);
+
+      --font-display: 'Archivo', sans-serif;
+      --font-body: 'Nunito', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --duration-normal: 0.65s;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ===========================================
+       VIEWPORT FITTING BASE (from viewport-base.css)
+       =========================================== */
+    html, body {
+      height: 100%;
+      overflow-x: hidden;
+    }
+
+    html {
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-height: 100%;
+      overflow: hidden;
+      padding: var(--slide-padding);
+    }
+
+    :root {
+      --title-size: clamp(1.5rem, 5vw, 4rem);
+      --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
+      --h3-size: clamp(1rem, 2.5vw, 1.75rem);
+      --body-size: clamp(0.75rem, 1.5vw, 1.125rem);
+      --small-size: clamp(0.65rem, 1vw, 0.875rem);
+      --slide-padding: clamp(1rem, 4vw, 4rem);
+      --content-gap: clamp(0.5rem, 2vw, 2rem);
+      --element-gap: clamp(0.25rem, 1vw, 1rem);
+    }
+
+    .card, .container, .content-box {
+      max-width: min(90vw, 1000px);
+      max-height: min(80vh, 700px);
+    }
+
+    .feature-list, .bullet-list {
+      gap: clamp(0.4rem, 1vh, 1rem);
+    }
+
+    .feature-list li, .bullet-list li {
+      font-size: var(--body-size);
+      line-height: 1.4;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+      gap: clamp(0.5rem, 1.5vw, 1rem);
+    }
+
+    img, .image-container {
+      max-width: 100%;
+      max-height: min(50vh, 400px);
+      object-fit: contain;
+    }
+
+    @media (max-height: 700px) {
+      :root {
+        --slide-padding: clamp(0.75rem, 3vw, 2rem);
+        --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+        --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+        --h2-size: clamp(1rem, 3vw, 1.75rem);
+      }
+    }
+
+    @media (max-height: 600px) {
+      :root {
+        --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+        --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+        --title-size: clamp(1.1rem, 4vw, 2rem);
+        --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+      }
+
+      .nav-dots, .keyboard-hint, .decorative {
+        display: none;
+      }
+    }
+
+    @media (max-height: 500px) {
+      :root {
+        --slide-padding: clamp(0.4rem, 2vw, 1rem);
+        --title-size: clamp(1rem, 3.5vw, 1.5rem);
+        --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+        --body-size: clamp(0.65rem, 1vw, 0.85rem);
+      }
+    }
+
+    @media (max-width: 600px) {
+      :root {
+        --title-size: clamp(1.25rem, 7vw, 2.5rem);
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+      }
+
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
+    /* ===========================================
+       BASE LAYOUT + MOTION
+       =========================================== */
+    body {
+      font-family: var(--font-body);
+      color: var(--text-primary);
+      background:
+        radial-gradient(circle at 8% 10%, rgba(199, 77, 50, 0.08), transparent 24%),
+        radial-gradient(circle at 88% 18%, rgba(145, 51, 33, 0.08), transparent 20%),
+        linear-gradient(var(--ink-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--ink-line) 1px, transparent 1px),
+        var(--bg-primary);
+      background-size: auto, auto, 28px 28px, 28px 28px, auto;
+    }
+
+    body.js-enabled .slide:not(.visible) .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .reveal {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity var(--duration-normal) var(--ease-out-expo),
+                  transform var(--duration-normal) var(--ease-out-expo);
+    }
+
+    .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+    .reveal:nth-child(1) { transition-delay: 0.08s; }
+    .reveal:nth-child(2) { transition-delay: 0.16s; }
+    .reveal:nth-child(3) { transition-delay: 0.24s; }
+    .reveal:nth-child(4) { transition-delay: 0.32s; }
+    .reveal:nth-child(5) { transition-delay: 0.4s; }
+
+    .slide-shell {
+      width: min(100%, 1320px);
+      height: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: clamp(0.8rem, 2vw, 1.6rem);
+    }
+
+    .slide-number {
+      font-family: var(--font-mono);
+      font-size: clamp(0.7rem, 0.9vw, 0.85rem);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .slide-number::before {
+      content: '';
+      width: 0.95rem;
+      height: 0.95rem;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px var(--accent-soft);
+      flex-shrink: 0;
+    }
+
+    .title,
+    .headline {
+      font-family: var(--font-display);
+      letter-spacing: -0.06em;
+      line-height: 0.94;
+    }
+
+    .title {
+      font-size: clamp(2.6rem, 7vw, 7rem);
+      max-width: 8.2ch;
+    }
+
+    .headline {
+      font-size: clamp(1.9rem, 4vw, 4.2rem);
+      max-width: 10ch;
+    }
+
+    .lede,
+    .body-copy,
+    .card p,
+    .mock-card p,
+    .surface-note p {
+      color: var(--text-secondary);
+      font-size: clamp(0.9rem, 1.15vw, 1.12rem);
+      line-height: 1.62;
+    }
+
+    .lede { max-width: 58ch; }
+
+    .muted-label {
+      font-family: var(--font-mono);
+      font-size: clamp(0.62rem, 0.9vw, 0.8rem);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent-dark);
+    }
+
+    .hero-grid,
+    .split-grid,
+    .stats-grid,
+    .feature-grid,
+    .surface-grid,
+    .ops-grid,
+    .band-stack,
+    .mini-grid,
+    .pipeline,
+    .runtime-grid {
+      display: grid;
+      gap: clamp(0.75rem, 1.4vw, 1.1rem);
+      min-width: 0;
+    }
+
+    .hero-grid { grid-template-columns: 1.3fr 0.9fr; align-items: center; }
+    .split-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+    .runtime-grid { grid-template-columns: 1.15fr 0.95fr; align-items: start; }
+    .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .surface-grid { grid-template-columns: 1.1fr 0.9fr; align-items: stretch; }
+    .ops-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .band-stack { grid-template-columns: 1fr; }
+    .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pipeline { grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; }
+    .pipeline.pipeline--six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+    .panel,
+    .card,
+    .mock-card,
+    .stats-card,
+    .surface-note,
+    .band,
+    .stage,
+    .ops-card {
+      min-width: 0;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      border-radius: clamp(1rem, 2vw, 1.5rem);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before,
+    .card::before,
+    .mock-card::before,
+    .stats-card::before,
+    .surface-note::before,
+    .band::before,
+    .stage::before,
+    .ops-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.45), transparent 22%);
+      pointer-events: none;
+    }
+
+    .panel,
+    .card,
+    .stats-card,
+    .surface-note,
+    .ops-card { padding: clamp(1rem, 1.8vw, 1.5rem); }
+
+    .mock-card { padding: clamp(0.9rem, 1.5vw, 1.3rem); background: #fff8f1; }
+    .band { padding: clamp(0.95rem, 1.4vw, 1.2rem); }
+    .stage { padding: clamp(0.85rem, 1.3vw, 1rem); background: rgba(255, 251, 247, 0.98); }
+
+    .accent-bar {
+      height: 0.5rem;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      width: min(18rem, 44%);
+      margin-bottom: clamp(0.8rem, 1vw, 1rem);
+    }
+
+    .tag-row,
+    .meta-row,
+    .ops-meta {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tag,
+    .meta-chip {
+      font-family: var(--font-mono);
+      font-size: clamp(0.58rem, 0.8vw, 0.76rem);
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.45rem 0.65rem;
+      background: rgba(255,255,255,0.55);
+      white-space: nowrap;
+    }
+
+    .stats-card strong,
+    .ops-card strong {
+      display: block;
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 2.4vw, 2.8rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      margin-bottom: 0.45rem;
+    }
+
+    .stats-card span,
+    .ops-card span,
+    .band span,
+    .stage span,
+    .mock-card span,
+    .surface-note span {
+      color: var(--text-secondary);
+      line-height: 1.52;
+      font-size: clamp(0.76rem, 0.95vw, 0.95rem);
+    }
+
+    .band {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 1rem;
+      background: linear-gradient(90deg, var(--accent-soft), transparent 58%), var(--bg-panel);
+    }
+
+    .band-num {
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 2vw, 2.4rem);
+      color: var(--accent-dark);
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+
+    .band h3,
+    .card h3,
+    .mock-card h3,
+    .surface-note h3,
+    .ops-card h3,
+    .stage h3 {
+      font-size: clamp(1rem, 1.3vw, 1.3rem);
+      line-height: 1.12;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .stage-label {
+      font-family: var(--font-mono);
+      font-size: clamp(0.58rem, 0.72vw, 0.72rem);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-dark);
+      margin-bottom: 0.45rem;
+      display: block;
+    }
+
+    .pipeline-arrow {
+      position: absolute;
+      right: -0.7rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.3rem;
+      height: 1.3rem;
+      border-radius: 50%;
+      background: var(--text-primary);
+      color: var(--bg-secondary);
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      box-shadow: 0 8px 18px rgba(25, 22, 18, 0.18);
+    }
+
+    .stage:last-child .pipeline-arrow { display: none; }
+
+    .mock-browser {
+      background: #fff8f1;
+      border: 1px solid var(--border);
+      border-radius: 1.2rem;
+      padding: 1rem;
+      display: grid;
+      gap: 0.8rem;
+      min-height: min(46vh, 360px);
+    }
+
+    .mock-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dots { display: flex; gap: 0.4rem; }
+    .dots span {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 50%;
+      background: rgba(25, 22, 18, 0.2);
+      display: block;
+    }
+
+    .search-strip {
+      height: clamp(2.6rem, 5vw, 4rem);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(255,255,255,0.88), rgba(243,237,230,0.95));
+      box-shadow: 0 10px 20px rgba(25, 22, 18, 0.08);
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      color: var(--text-secondary);
+      font-size: clamp(0.85rem, 1vw, 1rem);
+    }
+
+    .upload-chip {
+      width: fit-content;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      padding: 0.55rem 0.85rem;
+      font-family: var(--font-mono);
+      font-size: clamp(0.58rem, 0.72vw, 0.75rem);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .result-card {
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 0.9rem 1rem;
+      background: rgba(255,255,255,0.72);
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .result-lines,
+    .graph-lines {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .result-lines span,
+    .graph-lines span {
+      display: block;
+      height: 0.58rem;
+      border-radius: 999px;
+      background: rgba(25, 22, 18, 0.08);
+    }
+
+    .result-lines span:nth-child(1) { width: 88%; }
+    .result-lines span:nth-child(2) { width: 100%; }
+    .result-lines span:nth-child(3) { width: 73%; }
+
+    .graph-mock {
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      background: #16120f;
+      color: #fff5ec;
+      min-height: min(38vh, 280px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .graph-mock::before,
+    .graph-mock::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(199, 77, 50, 0.16);
+      filter: blur(2px);
+    }
+
+    .graph-mock::before {
+      width: 11rem;
+      height: 11rem;
+      top: -2rem;
+      left: -2rem;
+    }
+
+    .graph-mock::after {
+      width: 8rem;
+      height: 8rem;
+      right: -1.5rem;
+      bottom: -1rem;
+    }
+
+    .graph-grid {
+      position: relative;
+      height: 100%;
+      background:
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 30px 30px;
+      border-radius: 0.8rem;
+      padding: 1rem;
+    }
+
+    .node {
+      position: absolute;
+      width: 0.95rem;
+      height: 0.95rem;
+      border-radius: 50%;
+      background: #ffd4c9;
+      box-shadow: 0 0 0 6px rgba(255, 212, 201, 0.08);
+    }
+
+    .node.node--accent { background: #ff9c78; }
+    .node.node--teal { background: #7be1d2; }
+    .node.node--gold { background: #f7cc72; }
+
+    .edge {
+      position: absolute;
+      height: 2px;
+      background: rgba(255,255,255,0.22);
+      transform-origin: left center;
+    }
+
+    .surface-note {
+      display: grid;
+      gap: 0.7rem;
+      align-content: start;
+    }
+
+    .ops-card {
+      display: grid;
+      gap: 0.55rem;
+      align-content: start;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,248,241,0.98));
+    }
+
+    .ops-meta {
+      font-family: var(--font-mono);
+      font-size: clamp(0.58rem, 0.76vw, 0.75rem);
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(25, 22, 18, 0.08);
+      z-index: 100;
+    }
+
+    .progress-bar__fill {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      transition: width 0.2s linear;
+    }
+
+    .nav-dots {
+      position: fixed;
+      right: 1.1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      z-index: 100;
+    }
+
+    .nav-dots button {
+      width: 0.78rem;
+      height: 0.78rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.6);
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .nav-dots button.active {
+      background: var(--accent);
+      border-color: var(--accent-dark);
+      transform: scale(1.15);
+    }
+
+    .keyboard-hint {
+      position: fixed;
+      right: 1.2rem;
+      bottom: 1rem;
+      z-index: 100;
+      font-family: var(--font-mono);
+      font-size: clamp(0.58rem, 0.75vw, 0.75rem);
+      letter-spacing: 0.1em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.7);
+      border-radius: 999px;
+    }
+
+    .export-mode .nav-dots,
+    .export-mode .keyboard-hint,
+    .export-mode .progress-bar { display: none; }
+
+    .single-slide,
+    .single-slide body {
+      overflow: hidden;
+    }
+
+    .single-slide .slide { display: none; }
+    .single-slide .slide.is-target {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    @media (max-width: 1100px) {
+      .hero-grid,
+      .split-grid,
+      .runtime-grid,
+      .surface-grid,
+      .stats-grid,
+      .feature-grid,
+      .ops-grid,
+      .pipeline,
+      .pipeline.pipeline--six,
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-dots { display: none; }
+      .title { max-width: 11ch; }
+      .headline { max-width: 14ch; }
+      .mock-browser,
+      .graph-mock { min-height: min(34vh, 250px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar"><div class="progress-bar__fill" id="progressFill"></div></div>
+  <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+  <div class="keyboard-hint">↑ ↓ space</div>
+
+  <!-- ===========================================
+       SLIDE 01 — title
+       =========================================== -->
+  <section class="slide visible" id="slide-01">
+    <div class="slide-content">
+      <div class="slide-shell hero-grid">
+        <div class="panel reveal">
+          <div class="slide-number">01 / 07 project briefing</div>
+          <div class="accent-bar"></div>
+          <h1 class="title reveal">ragcli, from Oracle vectors to a usable product shell.</h1>
+          <p class="lede reveal">This repo packages the same retrieval system as a terminal app, a FastAPI service, and a React frontend. Under the hood it keeps documents, chunks, graph relationships, traces, evals, sync events, and sessions in Oracle 26ai while Ollama stays responsible for local embeddings and answer generation.</p>
+          <div class="tag-row reveal">
+            <span class="tag">python CLI</span>
+            <span class="tag">fastapi</span>
+            <span class="tag">react + vite</span>
+            <span class="tag">oracle 26ai</span>
+            <span class="tag">ollama</span>
+          </div>
+        </div>
+
+        <div class="band-stack reveal">
+          <div class="band">
+            <div class="band-num">3</div>
+            <div>
+              <h3>Entry surfaces</h3>
+              <span>CLI, API, and web UI all point at the same retrieval core.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">17</div>
+            <div>
+              <h3>Oracle tables</h3>
+              <span>Enough schema to store docs, chunks, graph, feedback, eval, sync, and sessions.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">21</div>
+            <div>
+              <h3>API routes</h3>
+              <span>Uploads, query, graph, feedback, eval, sync, sessions, and status endpoints.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">4</div>
+            <div>
+              <h3>Reasoning roles</h3>
+              <span>Planner, Researcher, Reasoner, Synthesizer are ready for traceable orchestration.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 02 — stack map
+       =========================================== -->
+  <section class="slide" id="slide-02">
+    <div class="slide-content">
+      <div class="slide-shell split-grid">
+        <div class="panel reveal">
+          <div class="slide-number">02 / 07 stack map</div>
+          <h2 class="headline">One core engine, surfaced 3 different ways.</h2>
+          <p class="body-copy">The project starts at <code>ragcli.py</code>, then fans out into Typer commands, the FastAPI backend, and the React app. The shared center sits in <code>ragcli/core/rag_engine.py</code>, where ingest, retrieval, generation, memory, and logging live together.</p>
+          <div class="mini-grid" style="margin-top: 1rem;">
+            <div class="card reveal">
+              <span class="muted-label">edge 01</span>
+              <h3>CLI shell</h3>
+              <p>Rich + Questionary make the repo feel like a local control room, not a thin wrapper script.</p>
+            </div>
+            <div class="card reveal">
+              <span class="muted-label">edge 02</span>
+              <h3>REST boundary</h3>
+              <p>FastAPI exposes the same engine to external tools and the React client.</p>
+            </div>
+            <div class="card reveal">
+              <span class="muted-label">edge 03</span>
+              <h3>Storage core</h3>
+              <p>Oracle owns documents, chunks, graph edges, traces, eval runs, and session turns.</p>
+            </div>
+            <div class="card reveal">
+              <span class="muted-label">edge 04</span>
+              <h3>Inference core</h3>
+              <p>Ollama handles embedding generation and response generation without leaving the local box.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="band-stack reveal">
+          <div class="band">
+            <div class="band-num">A</div>
+            <div>
+              <h3>Access layer</h3>
+              <span><code>ragcli/cli</code>, <code>ragcli/api</code>, and <code>frontend/src</code> shape the user experience.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">B</div>
+            <div>
+              <h3>Orchestration layer</h3>
+              <span><code>core</code>, <code>search</code>, <code>memory</code>, <code>knowledge</code>, and <code>agents</code> decide what answer gets built.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">C</div>
+            <div>
+              <h3>Persistence layer</h3>
+              <span><code>database/schemas.py</code> lays down 17 tables so retrieval state survives past one run.</span>
+            </div>
+          </div>
+          <div class="band">
+            <div class="band-num">D</div>
+            <div>
+              <h3>Quality layer</h3>
+              <span><code>feedback</code>, <code>eval</code>, and <code>sync</code> turn the repo into something you can tune over time.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 03 — ingest pipeline
+       =========================================== -->
+  <section class="slide" id="slide-03">
+    <div class="slide-content">
+      <div class="slide-shell">
+        <div class="slide-number reveal">03 / 07 ingest pipeline</div>
+        <h2 class="headline reveal">Documents don’t just upload, they become structured retrieval state.</h2>
+        <div class="pipeline reveal">
+          <div class="stage">
+            <span class="stage-label">01 preprocess</span>
+            <h3>Extract text</h3>
+            <span>OCR-aware parsing in <code>document_processor.py</code>.</span>
+            <div class="pipeline-arrow">→</div>
+          </div>
+          <div class="stage">
+            <span class="stage-label">02 chunk</span>
+            <h3>Split the doc</h3>
+            <span>Chunks keep token and character metadata for downstream retrieval.</span>
+            <div class="pipeline-arrow">→</div>
+          </div>
+          <div class="stage">
+            <span class="stage-label">03 embed</span>
+            <h3>Generate vectors</h3>
+            <span>Ollama is the default path, with Oracle embeddings as an optional mode.</span>
+            <div class="pipeline-arrow">→</div>
+          </div>
+          <div class="stage">
+            <span class="stage-label">04 persist</span>
+            <h3>Write Oracle rows</h3>
+            <span>Documents and chunks land in vector-enabled tables.</span>
+            <div class="pipeline-arrow">→</div>
+          </div>
+          <div class="stage">
+            <span class="stage-label">05 enrich</span>
+            <h3>Extract graph edges</h3>
+            <span>Entities and relationships get linked back to the chunks they came from.</span>
+          </div>
+        </div>
+        <div class="stats-grid reveal">
+          <div class="stats-card">
+            <strong>TXT</strong>
+            <span>Plain text and markdown stay on the fast path.</span>
+          </div>
+          <div class="stats-card">
+            <strong>PDF</strong>
+            <span>OCR support keeps scanned documents from falling out of the system.</span>
+          </div>
+          <div class="stats-card">
+            <strong>VECTOR</strong>
+            <span>Chunk embeddings are stored directly in Oracle vector columns.</span>
+          </div>
+          <div class="stats-card">
+            <strong>KG</strong>
+            <span>Entity and relationship tables give retrieval another surface to search.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 04 — runtime query path
+       =========================================== -->
+  <section class="slide" id="slide-04">
+    <div class="slide-content">
+      <div class="slide-shell runtime-grid">
+        <div class="panel reveal">
+          <div class="slide-number">04 / 07 runtime query path</div>
+          <h2 class="headline">Queries move through retrieval, memory, and logging before the answer is done.</h2>
+          <p class="body-copy">When a <code>session_id</code> is present, ragcli can rewrite the prompt using recent turns and a rolling summary. Retrieval then pulls chunks, builds a context window, generates an answer, logs the timings, and appends the session turn for later use.</p>
+          <div class="pipeline pipeline--six" style="margin-top: 1rem;">
+            <div class="stage">
+              <span class="stage-label">01 session</span>
+              <h3>Touch session</h3>
+              <span>Recent turns and summaries become available.</span>
+              <div class="pipeline-arrow">→</div>
+            </div>
+            <div class="stage">
+              <span class="stage-label">02 rewrite</span>
+              <h3>Clarify follow-ups</h3>
+              <span><code>QueryRewriter</code> expands vague next-turn prompts.</span>
+              <div class="pipeline-arrow">→</div>
+            </div>
+            <div class="stage">
+              <span class="stage-label">03 retrieve</span>
+              <h3>Search chunks</h3>
+              <span>Vector search is the default core path.</span>
+              <div class="pipeline-arrow">→</div>
+            </div>
+            <div class="stage">
+              <span class="stage-label">04 generate</span>
+              <h3>Ask Ollama</h3>
+              <span>Prompt = retrieved context + user query.</span>
+              <div class="pipeline-arrow">→</div>
+            </div>
+            <div class="stage">
+              <span class="stage-label">05 log</span>
+              <h3>Persist metrics</h3>
+              <span>Query rows, timings, and retrieved chunks get written.</span>
+              <div class="pipeline-arrow">→</div>
+            </div>
+            <div class="stage">
+              <span class="stage-label">06 remember</span>
+              <h3>Append turn</h3>
+              <span>Session history stays usable for the next prompt.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card reveal">
+          <span class="muted-label">where hybrid search fits</span>
+          <h3>Vector is the baseline, hybrid is the upgrade path.</h3>
+          <p>The repo already has a <code>HybridSearch</code> class that fuses vector, BM25, and graph-driven chunk IDs via reciprocal rank fusion. That means the system is wired for stronger retrieval than a pure embedding nearest-neighbor pass, even when the current query path stays simple.</p>
+          <div class="ops-meta" style="margin-top: 1rem;">
+            <span>vector similarity</span>
+            <span>BM25 fallback</span>
+            <span>graph hop retrieval</span>
+            <span>session memory</span>
+          </div>
+          <div class="card" style="margin-top: 1rem; background: rgba(255,255,255,0.6); box-shadow: none;">
+            <span class="muted-label">why it matters</span>
+            <h3>It remembers what a one-shot RAG bot forgets.</h3>
+            <p>Sessions, logs, eval rows, and feedback all make later tuning possible. The repo isn’t locked into a “hit enter, get text, lose context” lifecycle.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 05 — feature grid
+       =========================================== -->
+  <section class="slide" id="slide-05">
+    <div class="slide-content">
+      <div class="slide-shell">
+        <div class="slide-number reveal">05 / 07 intelligence engines</div>
+        <h2 class="headline reveal">The repo layers product-grade behavior on top of plain upload + ask.</h2>
+        <div class="feature-grid reveal">
+          <div class="card">
+            <span class="muted-label">agents</span>
+            <h3>4-role orchestration</h3>
+            <p>Planner, Researcher, Reasoner, and Synthesizer already exist with trace plumbing for step-by-step introspection.</p>
+          </div>
+          <div class="card">
+            <span class="muted-label">knowledge graph</span>
+            <h3>Chunk-linked entities</h3>
+            <p>Graph entities, relationships, and entity-chunk links give retrieval a second map of the same corpus.</p>
+          </div>
+          <div class="card">
+            <span class="muted-label">memory</span>
+            <h3>Sessions that accumulate context</h3>
+            <p>Session turns and rolling summaries stop multi-turn chats from losing the plot.</p>
+          </div>
+          <div class="card">
+            <span class="muted-label">feedback</span>
+            <h3>Chunk quality scoring</h3>
+            <p>Feedback endpoints and Wilson score logic let the system learn which retrieval results helped.</p>
+          </div>
+          <div class="card">
+            <span class="muted-label">evaluation</span>
+            <h3>Synthetic and replay runs</h3>
+            <p>Eval modes capture relevance, faithfulness, precision, and recall against the live pipeline.</p>
+          </div>
+          <div class="card">
+            <span class="muted-label">sync</span>
+            <h3>Keep docs fresh</h3>
+            <p>Schedulers and watchers can monitor paths or repos, then re-ingest only what changed.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 06 — frontend + api
+       =========================================== -->
+  <section class="slide" id="slide-06">
+    <div class="slide-content">
+      <div class="slide-shell surface-grid">
+        <div class="mock-card reveal">
+          <div class="slide-number">06 / 07 frontend surfaces</div>
+          <div class="mock-browser" aria-hidden="true">
+            <div class="mock-top">
+              <div class="dots"><span></span><span></span><span></span></div>
+              <div class="meta-chip">Home.tsx</div>
+            </div>
+            <div class="search-strip">How can I help you today?</div>
+            <div class="upload-chip">drag documents here</div>
+            <div class="result-card">
+              <span class="muted-label">search result</span>
+              <div class="result-lines"><span></span><span></span><span></span></div>
+            </div>
+            <div class="result-card">
+              <span class="muted-label">vector visualizer preview</span>
+              <div class="result-lines"><span style="width: 55%;"></span><span style="width: 78%;"></span><span style="width: 46%;"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="split-grid reveal" style="grid-template-columns: 1fr; height: 100%;">
+          <div class="graph-mock" aria-hidden="true">
+            <div class="graph-grid">
+              <div class="edge" style="left: 52px; top: 82px; width: 128px; transform: rotate(12deg);"></div>
+              <div class="edge" style="left: 110px; top: 130px; width: 150px; transform: rotate(-18deg);"></div>
+              <div class="edge" style="left: 186px; top: 74px; width: 138px; transform: rotate(28deg);"></div>
+              <div class="edge" style="left: 212px; top: 156px; width: 118px; transform: rotate(-6deg);"></div>
+              <div class="node node--accent" style="left: 42px; top: 76px;"></div>
+              <div class="node node--teal" style="left: 172px; top: 102px;"></div>
+              <div class="node node--gold" style="left: 250px; top: 50px;"></div>
+              <div class="node node--accent" style="left: 320px; top: 166px;"></div>
+              <div class="node" style="left: 248px; top: 168px;"></div>
+              <div class="node node--teal" style="left: 110px; top: 170px;"></div>
+            </div>
+          </div>
+          <div class="surface-note">
+            <span class="muted-label">what the UI adds</span>
+            <h3>Search UX on one side, Sigma graph inspection on the other.</h3>
+            <p>The React layer keeps the main page uncluttered, then sends deeper model introspection to the dedicated visualizer route. That split is smart: the everyday flow stays simple while the graph tooling stays available for anyone who wants to inspect similarity neighborhoods.</p>
+            <div class="ops-meta">
+              <span>/api/query</span>
+              <span>/api/embeddings/graph</span>
+              <span>Graphology + Sigma</span>
+              <span>document filters</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================
+       SLIDE 07 — operations / finish
+       =========================================== -->
+  <section class="slide" id="slide-07">
+    <div class="slide-content">
+      <div class="slide-shell">
+        <div class="slide-number reveal">07 / 07 delivery modes</div>
+        <h2 class="headline reveal">ragcli is set up to be tinkered with, packaged, or run as a full local stack.</h2>
+        <div class="ops-grid reveal">
+          <div class="ops-card">
+            <div class="ops-meta">source path</div>
+            <h3>Run it from the repo</h3>
+            <span><code>python ragcli.py</code> launches the REPL. <code>python ragcli.py api</code> exposes the backend immediately.</span>
+            <strong>local-first</strong>
+          </div>
+          <div class="ops-card">
+            <div class="ops-meta">distribution path</div>
+            <h3>Ship it as a package</h3>
+            <span>PyPI packaging and <code>setup.py</code> keep install friction low for people who just want the tool.</span>
+            <strong>pip</strong>
+          </div>
+          <div class="ops-card">
+            <div class="ops-meta">stack path</div>
+            <h3>Boot the whole environment</h3>
+            <span><code>docker-compose.yml</code> makes the Oracle + Ollama + API setup feel like a coherent demo stack instead of manual assembly.</span>
+            <strong>compose</strong>
+          </div>
+        </div>
+        <div class="panel reveal">
+          <p class="lede">The big takeaway: this repo already spans ingestion, retrieval, memory, graph enrichment, evaluation, sync, API delivery, and UI inspection. The whole thing is opinionated around Oracle as the storage brain and Ollama as the local model runtime. That makes ragcli more interesting than a toy chatbot wrapper, it’s a compact retrieval platform with multiple ways to use it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    class SlidePresentation {
+      constructor() {
+        this.slides = Array.from(document.querySelectorAll('.slide'));
+        this.progressFill = document.getElementById('progressFill');
+        this.navDots = document.getElementById('navDots');
+        const params = new URLSearchParams(window.location.search);
+        this.exportMode = params.has('export');
+        this.singleSlideId = params.get('slide');
+        this.currentIndex = 0;
+
+        document.body.classList.add('js-enabled');
+        if (this.exportMode) {
+          document.body.classList.add('export-mode');
+          this.slides.forEach((slide) => slide.classList.add('visible'));
+        }
+        if (this.singleSlideId) {
+          document.body.classList.add('single-slide');
+          this.slides.forEach((slide) => {
+            if (slide.id === this.singleSlideId || slide.id === `slide-${this.singleSlideId}`) {
+              slide.classList.add('is-target', 'visible');
+            }
+          });
+        }
+
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupWheelNav();
+        this.setupTouchNav();
+        this.setupNavDots();
+        this.updateProgress();
+        window.addEventListener('scroll', () => this.updateProgress(), { passive: true });
+      }
+
+      setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('visible');
+            const index = this.slides.indexOf(entry.target);
+            if (index >= 0) {
+              this.currentIndex = index;
+              this.updateNavDots();
+              this.updateProgress();
+            }
+          });
+        }, { threshold: 0.55 });
+
+        this.slides.forEach((slide) => observer.observe(slide));
+      }
+
+      setupKeyboardNav() {
+        window.addEventListener('keydown', (event) => {
+          if (['ArrowDown', 'PageDown', ' '].includes(event.key)) {
+            event.preventDefault();
+            this.goTo(Math.min(this.currentIndex + 1, this.slides.length - 1));
+          }
+          if (['ArrowUp', 'PageUp'].includes(event.key)) {
+            event.preventDefault();
+            this.goTo(Math.max(this.currentIndex - 1, 0));
+          }
+          if (event.key === 'Home') {
+            event.preventDefault();
+            this.goTo(0);
+          }
+          if (event.key === 'End') {
+            event.preventDefault();
+            this.goTo(this.slides.length - 1);
+          }
+        });
+      }
+
+      setupWheelNav() {
+        let locked = false;
+        window.addEventListener('wheel', (event) => {
+          if (this.exportMode) return;
+          if (locked || Math.abs(event.deltaY) < 16) return;
+          locked = true;
+          const direction = event.deltaY > 0 ? 1 : -1;
+          this.goTo(Math.max(0, Math.min(this.currentIndex + direction, this.slides.length - 1)));
+          window.setTimeout(() => { locked = false; }, 420);
+        }, { passive: true });
+      }
+
+      setupTouchNav() {
+        let startY = 0;
+        window.addEventListener('touchstart', (event) => {
+          startY = event.changedTouches[0].clientY;
+        }, { passive: true });
+        window.addEventListener('touchend', (event) => {
+          const endY = event.changedTouches[0].clientY;
+          const delta = startY - endY;
+          if (Math.abs(delta) < 45) return;
+          const direction = delta > 0 ? 1 : -1;
+          this.goTo(Math.max(0, Math.min(this.currentIndex + direction, this.slides.length - 1)));
+        }, { passive: true });
+      }
+
+      setupNavDots() {
+        if (!this.navDots) return;
+        this.navDots.innerHTML = '';
+        this.slides.forEach((slide, index) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.setAttribute('aria-label', `Go to slide ${index + 1}`);
+          btn.addEventListener('click', () => this.goTo(index));
+          this.navDots.appendChild(btn);
+        });
+        this.updateNavDots();
+      }
+
+      updateNavDots() {
+        if (!this.navDots) return;
+        Array.from(this.navDots.children).forEach((child, index) => {
+          child.classList.toggle('active', index === this.currentIndex);
+        });
+      }
+
+      updateProgress() {
+        if (!this.progressFill) return;
+        const progress = this.slides.length <= 1 ? 100 : (this.currentIndex / (this.slides.length - 1)) * 100;
+        this.progressFill.style.width = `${progress}%`;
+      }
+
+      goTo(index) {
+        const target = this.slides[index];
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        this.currentIndex = index;
+        this.updateNavDots();
+        this.updateProgress();
+      }
+    }
+
+    new SlidePresentation();
+  </script>
+</body>
+</html>
