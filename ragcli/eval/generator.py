@@ -98,10 +98,10 @@ Text:
             List of (chunk_id, content) tuples.
         """
         sql = """
-            SELECT chunk_id, content
+            SELECT chunk_id, chunk_text
             FROM CHUNKS
             WHERE document_id = :doc_id
-            ORDER BY chunk_index
+            ORDER BY chunk_number
             FETCH FIRST :limit ROWS ONLY
         """
         with self.conn.cursor() as cursor:

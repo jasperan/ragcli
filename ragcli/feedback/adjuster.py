@@ -32,7 +32,7 @@ class WeightAdjuster:
         return current_weights
 
     def strengthen_graph_edges(self, chunk_ids, factor=1.1):
-        """Multiply rel_weight by factor for relationships linked to chunk_ids. Cap at 5.0.
+        """Multiply weight by factor for relationships linked to chunk_ids. Cap at 5.0.
 
         Args:
             chunk_ids: list of chunk ID strings.
@@ -47,7 +47,7 @@ class WeightAdjuster:
 
         sql = (
             f"UPDATE KG_RELATIONSHIPS "
-            f"SET rel_weight = LEAST(rel_weight * :factor, 5.0) "
+            f"SET weight = LEAST(weight * :factor, 5.0) "
             f"WHERE chunk_id IN ({in_clause})"
         )
 
@@ -64,7 +64,7 @@ class WeightAdjuster:
         )
 
     def weaken_graph_edges(self, chunk_ids, factor=0.9):
-        """Multiply rel_weight by factor for relationships linked to chunk_ids. Floor at 0.1.
+        """Multiply weight by factor for relationships linked to chunk_ids. Floor at 0.1.
 
         Args:
             chunk_ids: list of chunk ID strings.
@@ -78,7 +78,7 @@ class WeightAdjuster:
 
         sql = (
             f"UPDATE KG_RELATIONSHIPS "
-            f"SET rel_weight = GREATEST(rel_weight * :factor, 0.1) "
+            f"SET weight = GREATEST(weight * :factor, 0.1) "
             f"WHERE chunk_id IN ({in_clause})"
         )
 

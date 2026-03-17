@@ -80,7 +80,7 @@ def upload_document(file_path: str, config: Optional[dict] = None) -> Dict[str, 
 
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT chunk_id, content FROM CHUNKS WHERE document_id = :doc_id ORDER BY chunk_index",
+                        "SELECT chunk_id, chunk_text FROM CHUNKS WHERE document_id = :doc_id ORDER BY chunk_number",
                         {"doc_id": doc_id}
                     )
                     doc_chunks = cursor.fetchall()
@@ -234,7 +234,7 @@ def upload_document_with_progress(file_path: str, config: Optional[dict] = None,
 
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT chunk_id, content FROM CHUNKS WHERE document_id = :doc_id ORDER BY chunk_index",
+                        "SELECT chunk_id, chunk_text FROM CHUNKS WHERE document_id = :doc_id ORDER BY chunk_number",
                         {"doc_id": doc_id}
                     )
                     doc_chunks = cursor.fetchall()
@@ -390,7 +390,12 @@ def ask_query(
         try:
             session_mgr = SessionManager(conn_session)
             chunk_ids = [r.get('chunk_id') for r in results if r.get('chunk_id')]
-            session_mgr.add_turn(session_id, original_query, response, query, chunk_ids)
+            turn_number = session_mgr.get_turn_count(session_id) + 1
+            session_mgr.add_turn(
+                session_id, turn_number, original_query,
+                rewritten_query=query if query != original_query else None,
+                response=response, trace_id=trace_id, chunk_ids=chunk_ids
+            )
 
             # Check if summarization needed
             turn_count = session_mgr.get_turn_count(session_id)
