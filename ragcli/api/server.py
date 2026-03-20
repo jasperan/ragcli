@@ -56,6 +56,10 @@ from .models import (
     KgRelationshipResponse,
     KgEntityListResponse,
     KgNeighborhoodResponse,
+    ChunkDetailResponse,
+    ChunkListResponse,
+    LatencyDataPoint,
+    LatencyResponse,
 )
 from ragcli.database.vector_ops import get_embedding_graph, get_query_graph
 from ragcli.core.embedding import generate_embedding
@@ -834,6 +838,61 @@ async def get_entity_neighbors(entity_id: str):
     except Exception as e:
         logger.error(f"Failed to get entity neighbors: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get entity neighbors.")
+    finally:
+        conn.close()
+
+
+# --- Document Chunks / Latency Endpoints ---
+
+@app.get("/api/documents/{doc_id}/chunks", response_model=ChunkListResponse)
+async def get_document_chunks(doc_id: str, limit: int = 100, offset: int = 0):
+    """List chunks for a document with pagination."""
+    conn = get_db_client().get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT chunk_id, chunk_number, chunk_text, token_count, character_count "
+                "FROM CHUNKS WHERE document_id = :1 ORDER BY chunk_number "
+                "OFFSET :2 ROWS FETCH NEXT :3 ROWS ONLY", [doc_id, offset, limit])
+            rows = cur.fetchall()
+            cur.execute("SELECT COUNT(*) FROM CHUNKS WHERE document_id = :1", [doc_id])
+            total = cur.fetchone()[0]
+        chunks = [ChunkDetailResponse(
+            chunk_id=r[0], chunk_number=r[1],
+            text=r[2] if isinstance(r[2], str) else r[2].read(),
+            token_count=r[3], character_count=r[4]
+        ) for r in rows]
+        return ChunkListResponse(chunks=chunks, total_count=total)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get document chunks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get document chunks.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/stats/latency", response_model=LatencyResponse)
+async def get_latency_stats(limit: int = 50):
+    """Get recent query latency data points."""
+    conn = get_db_client().get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT query_id, total_time_ms, search_time_ms, generation_time_ms "
+                "FROM QUERIES WHERE total_time_ms IS NOT NULL "
+                "ORDER BY created_at DESC FETCH FIRST :1 ROWS ONLY", [limit])
+            rows = cur.fetchall()
+        points = [LatencyDataPoint(
+            query_id=r[0], total_time_ms=r[1] or 0,
+            search_time_ms=r[2] or 0, generation_time_ms=r[3] or 0
+        ) for r in rows]
+        return LatencyResponse(data_points=points)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get latency stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get latency stats.")
     finally:
         conn.close()
 
