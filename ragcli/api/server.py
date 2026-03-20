@@ -260,13 +260,65 @@ async def delete_document(doc_id: str):
         conn.close()
 
 
+async def _stream_query(request: QueryRequest):
+    """SSE generator for streaming query responses."""
+    import json as _json
+    from ragcli.core.rag_engine import search_chunks as _sc, build_prompt as _bp
+    from ragcli.core.embedding import generate_response as _gr
+
+    cfg = load_config()
+    client = get_db_client()
+    conn = client.get_connection()
+    try:
+        chunks, query_embedding = _sc(
+            request.query,
+            request.document_ids,
+            request.top_k or 5,
+            request.min_similarity or 0.5,
+            cfg,
+            conn,
+            include_embeddings=request.include_embeddings,
+        )
+
+        chunk_data = [
+            {
+                "chunk_id": c.get("chunk_id", ""),
+                "document_id": c.get("document_id", ""),
+                "text": c.get("text", "")[:200],
+                "similarity_score": c.get("similarity_score", 0),
+                "chunk_number": c.get("chunk_number", 0),
+            }
+            for c in chunks
+        ]
+        yield f"event: chunks\ndata: {_json.dumps(chunk_data)}\n\n"
+
+        model = cfg.get("ollama", {}).get("chat_model", "gemma3:270m")
+        messages = _bp(request.query, chunks, cfg)
+        for token in _gr(messages, model, cfg, stream=True):
+            yield f"event: token\ndata: {_json.dumps({'token': token})}\n\n"
+
+        yield f"event: done\ndata: {_json.dumps({'status': 'complete'})}\n\n"
+    except Exception as e:
+        yield f"event: error\ndata: {_json.dumps({'error': str(e)})}\n\n"
+    finally:
+        conn.close()
+
+
 @app.post("/api/query", response_model=QueryResponse)
 async def query_endpoint(request: QueryRequest):
     """
     Perform RAG query.
 
     Retrieves relevant document chunks and generates response using LLM.
+    If request.stream is True, returns a Server-Sent Events stream instead of JSON.
     """
+    if request.stream:
+        return StreamingResponse(
+            _stream_query(request),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     try:
         result = ask_query(
             query=request.query,

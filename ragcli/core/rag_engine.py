@@ -5,7 +5,7 @@ import time
 from typing import Dict, List, Any, Optional, Generator
 from .document_processor import preprocess_document, chunk_text, get_document_metadata
 from .embedding import generate_embedding, generate_response, batch_generate_embeddings
-from .similarity_search import search_chunks
+from .similarity_search import search_chunks as _search_chunks_internal
 from ..database.vector_ops import insert_document, insert_chunk, log_query
 from ..database.oracle_client import OracleClient
 from ..config.config_manager import load_config
@@ -342,7 +342,7 @@ def ask_query(
             client_session.close()
 
     # Search
-    search_result = search_chunks(query, top_k, min_similarity, document_ids, config)
+    search_result = _search_chunks_internal(query, top_k, min_similarity, document_ids, config)
     results = search_result['results']
     search_metrics = search_result['metrics']
 
@@ -436,3 +436,49 @@ def ask_query(
         # embeddings are already in 'results' from search_similar, so they are passed through
 
     return response_data
+
+
+# ---------------------------------------------------------------------------
+# Helpers exported for the SSE streaming path in api/server.py
+# ---------------------------------------------------------------------------
+
+def search_chunks(
+    query: str,
+    document_ids: Optional[List[str]],
+    top_k: int,
+    min_similarity: float,
+    config: dict,
+    conn=None,
+    include_embeddings: bool = False,
+):
+    """Search for relevant chunks. Returns (chunks_list, query_embedding).
+
+    This wrapper adapts the streaming-friendly signature expected by the SSE
+    endpoint to the internal similarity-search implementation.  The ``conn``
+    parameter is accepted for API compatibility but the underlying helper
+    manages its own connection, so it is ignored here.
+    """
+    search_result = _search_chunks_internal(query, top_k, min_similarity, document_ids, config)
+    return search_result['results'], search_result['query_embedding']
+
+
+def build_prompt(
+    query: str,
+    chunks: List[Dict[str, Any]],
+    config: dict,
+    session_context: str = "",
+) -> List[Dict[str, str]]:
+    """Build the LLM messages list from a query and retrieved chunks.
+
+    Returns a messages list suitable for ``generate_response``.
+    """
+    context = "\n\n".join([f"From {c['document_id']}: {c['text']}" for c in chunks])
+    system_content = "You are a helpful assistant. Use the following context to answer the user's question accurately. If the context doesn't contain relevant information, say so."
+    user_content = f"Context:\n{context}"
+    if session_context:
+        user_content += f"\n\nConversation so far:\n{session_context}"
+    user_content += f"\n\nQuestion: {query}"
+    return [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_content},
+    ]
