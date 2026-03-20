@@ -5,6 +5,7 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
 use ratatui::text::Line;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
+use crate::api::client::ApiClient;
 use crate::theme::Theme;
 
 #[derive(Default, Clone, Copy, Display, EnumIter, FromRepr, PartialEq)]
@@ -27,13 +28,15 @@ pub enum Tab {
 pub struct App {
     pub active_tab: Tab,
     pub should_quit: bool,
+    pub client: ApiClient,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(client: ApiClient) -> Self {
         Self {
             active_tab: Tab::Query,
             should_quit: false,
+            client,
         }
     }
 
