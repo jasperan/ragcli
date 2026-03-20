@@ -262,23 +262,33 @@ async def delete_document(doc_id: str):
 
 async def _stream_query(request: QueryRequest):
     """SSE generator for streaming query responses."""
+    import asyncio
     import json as _json
     from ragcli.core.rag_engine import search_chunks as _sc, build_prompt as _bp
     from ragcli.core.embedding import generate_response as _gr
 
     cfg = load_config()
-    client = get_db_client()
-    conn = client.get_connection()
+
+    # Run the synchronous DB search in a thread so the event loop isn't blocked.
+    # The connection is acquired and released entirely within the thread.
+    def _do_search():
+        client = get_db_client()
+        conn = client.get_connection()
+        try:
+            return _sc(
+                request.query,
+                request.document_ids,
+                request.top_k or 5,
+                request.min_similarity or 0.5,
+                cfg,
+                conn,
+                include_embeddings=request.include_embeddings,
+            )
+        finally:
+            conn.close()  # Release immediately after search — no connection held during streaming
+
     try:
-        chunks, query_embedding = _sc(
-            request.query,
-            request.document_ids,
-            request.top_k or 5,
-            request.min_similarity or 0.5,
-            cfg,
-            conn,
-            include_embeddings=request.include_embeddings,
-        )
+        chunks, query_embedding = await asyncio.to_thread(_do_search)
 
         chunk_data = [
             {
@@ -294,14 +304,13 @@ async def _stream_query(request: QueryRequest):
 
         model = cfg.get("ollama", {}).get("chat_model", "gemma3:270m")
         messages = _bp(request.query, chunks, cfg)
+        # Ollama HTTP streaming naturally yields between tokens; no DB connection held here.
         for token in _gr(messages, model, cfg, stream=True):
             yield f"event: token\ndata: {_json.dumps({'token': token})}\n\n"
 
         yield f"event: done\ndata: {_json.dumps({'status': 'complete'})}\n\n"
     except Exception as e:
         yield f"event: error\ndata: {_json.dumps({'error': str(e)})}\n\n"
-    finally:
-        conn.close()
 
 
 @app.post("/api/query", response_model=QueryResponse)
@@ -873,12 +882,13 @@ async def get_entity_neighbors(entity_id: str):
             neighbor_ids.discard(entity_id)
 
             neighbors = []
-            for nid in neighbor_ids:
+            if neighbor_ids:
+                placeholders = ','.join([f':{i+1}' for i in range(len(neighbor_ids))])
                 cur.execute(
-                    "SELECT entity_id, entity_name, entity_type, description, mention_count "
-                    "FROM KG_ENTITIES WHERE entity_id = :1", [nid])
-                nrow = cur.fetchone()
-                if nrow:
+                    f"SELECT entity_id, entity_name, entity_type, description, mention_count "
+                    f"FROM KG_ENTITIES WHERE entity_id IN ({placeholders})",
+                    list(neighbor_ids))
+                for nrow in cur.fetchall():
                     neighbors.append(KgEntityResponse(
                         entity_id=nrow[0], entity_name=nrow[1], entity_type=nrow[2],
                         description=nrow[3], mention_count=nrow[4]))
