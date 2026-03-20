@@ -6,6 +6,7 @@
 [![Oracle 26ai](https://img.shields.io/badge/Oracle-26ai_Free-F80000.svg?style=for-the-badge&logo=oracle&logoColor=white)](https://www.oracle.com/database/free/)
 [![Ollama](https://img.shields.io/badge/LLM-Ollama-000000.svg?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Rust TUI](https://img.shields.io/badge/TUI-Rust_ratatui-DEA584.svg?style=for-the-badge&logo=rust&logoColor=white)](https://ratatui.rs/)
 [![React](https://img.shields.io/badge/React-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![PyPI](https://img.shields.io/badge/PyPI-oracle--ragcli-blue.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ragcli/)
 [![Version](https://img.shields.io/badge/version-2.0.1-brightgreen.svg?style=for-the-badge)](https://github.com/jasperan/ragcli/releases)
@@ -33,11 +34,56 @@ Interactive Jupyter notebooks demonstrating ragcli capabilities:
 ## Architecture
 
 1. **Frontend**: React (Vite) + TailwindCSS
-2. **Backend**: FastAPI (25 endpoints)
+2. **Backend**: FastAPI (29 endpoints, SSE streaming)
 3. **Database**: Oracle Database 26ai Free (17 tables, vector + graph store)
 4. **LLM**: Ollama (local inference, multi-agent CoT pipeline)
 5. **Search**: Hybrid BM25 + Vector + Knowledge Graph with RRF fusion
 6. **Memory**: Multi-turn session management with query rewriting
+7. **Terminal Dashboard**: Rust TUI (ratatui) with 6 interactive views
+
+## Terminal Dashboard (TUI)
+
+A standalone Rust binary that provides a tabbed terminal dashboard. It spawns the FastAPI server automatically and connects via HTTP/SSE.
+
+![Live Query View](./docs/images/tui-query.png)
+
+### Build and Run
+
+```bash
+# Build (requires Rust 1.70+)
+cd tui && cargo build --release
+
+# Run from the project root
+./tui/target/release/ragcli-tui
+
+# Or with custom port
+RAGCLI_PORT=9000 ./tui/target/release/ragcli-tui
+```
+
+### 6 Views
+
+| Tab | View | What it shows |
+|-----|------|---------------|
+| `1` | **Query** | Streaming RAG responses with source chunks and similarity scores |
+| `2` | **Heatmap** | Color-coded 768-dim embedding visualization with contribution analysis |
+| `3` | **Graph** | Interactive knowledge graph explorer with force-directed layout |
+| `4` | **Agents** | 4-column CoT pipeline trace (Planner, Researcher, Reasoner, Synthesizer) |
+| `5` | **Docs** | Document manager with chunk preview and metadata inspector |
+| `6` | **System** | Service health, latency sparkline, model list, CPU/RAM gauges |
+
+![System Monitor View](./docs/images/tui-monitor.png)
+
+### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `1`-`6` | Switch view |
+| `Tab` / `Shift+Tab` | Cycle views |
+| `/` | Command palette (fuzzy search) |
+| `?` | Help overlay (per-view keys) |
+| `q` | Quit |
+
+Each view has its own keybindings. Press `?` inside any view to see them.
 
 ## Features
 
@@ -57,7 +103,7 @@ Interactive Jupyter notebooks demonstrating ragcli capabilities:
 
 - **Oracle Database 26ai**: AI Vector Search with HNSW/IVF auto-indexing
 - **Ollama**: Local LLM inference (default: `qwen3.5:35b-a3b` for chat, `nomic-embed-text` for embeddings)
-- **25 API endpoints**: Documents, query, models, feedback, eval, sync, sessions
+- **29 API endpoints**: Documents, query (with SSE streaming), models, feedback, eval, sync, sessions, knowledge graph, latency stats
 - **9 CLI commands**: `ragcli eval synthetic|replay|report|runs`, `ragcli sync add|list|status|remove|events`
 - **17 database tables**: Documents, chunks, queries, sessions, knowledge graph, traces, feedback, eval, sync
 - **React frontend**: Google-style search, drag-drop upload, animated vector heatmaps
