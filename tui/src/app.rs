@@ -12,6 +12,7 @@ use crate::api::client::ApiClient;
 use crate::theme::Theme;
 use crate::views::{View, query::QueryView, heatmap::HeatmapView, graph::GraphView,
     agents::AgentsView, documents::DocumentsView, monitor::MonitorView};
+use crate::widgets::palette::{CommandPalette, PaletteResult};
 
 #[derive(Default, Clone, Copy, Display, EnumIter, FromRepr, PartialEq)]
 pub enum Tab {
@@ -53,6 +54,7 @@ pub struct App {
     pub client: ApiClient,
     pub event_tx: Option<mpsc::UnboundedSender<AppEvent>>,
     pub views: Vec<Box<dyn View>>,
+    pub palette: CommandPalette,
 }
 
 impl App {
@@ -70,6 +72,7 @@ impl App {
                 Box::new(DocumentsView::new()),
                 Box::new(MonitorView::new()),
             ],
+            palette: CommandPalette::new(),
         }
     }
 
@@ -107,7 +110,7 @@ impl App {
 
         // Main loop
         while !self.should_quit {
-            terminal.draw(|frame| self.render(frame))?;
+            terminal.draw(|frame| self.render(frame))?;  // self is &mut via closure
             if let Some(event) = rx.recv().await {
                 match event {
                     AppEvent::Key(key) => self.handle_key(key),
@@ -121,8 +124,25 @@ impl App {
     }
 
     fn handle_key(&mut self, key: KeyCode) {
+        // When palette is visible, delegate all input to it first.
+        if self.palette.visible {
+            if let Some(result) = self.palette.handle_key(key) {
+                match result {
+                    PaletteResult::SwitchTab(idx) => {
+                        self.active_tab = Tab::from_repr(idx).unwrap_or(Tab::Query);
+                    }
+                    PaletteResult::Action(_label) => {
+                        // Custom actions handled here in future tasks.
+                    }
+                    PaletteResult::Close => {}
+                }
+            }
+            return;
+        }
+
         match key {
             KeyCode::Char('q') => self.should_quit = true,
+            KeyCode::Char('/') => self.palette.toggle(),
             KeyCode::Char('1') => self.active_tab = Tab::Query,
             KeyCode::Char('2') => self.active_tab = Tab::Heatmap,
             KeyCode::Char('3') => self.active_tab = Tab::Graph,
@@ -148,7 +168,7 @@ impl App {
         }
     }
 
-    fn render(&self, frame: &mut Frame) {
+    fn render(&mut self, frame: &mut Frame) {
         let [tab_area, view_area, status_area] = Layout::vertical([
             Constraint::Length(3),
             Constraint::Fill(1),
@@ -173,5 +193,10 @@ impl App {
             " [q]uit  [1-6]tab  [/]search  [?]help".into(),
         ]).style(Theme::header());
         frame.render_widget(Paragraph::new(status), status_area);
+
+        // Command palette overlay (rendered last so it appears on top)
+        if self.palette.visible {
+            self.palette.render(frame, frame.area());
+        }
     }
 }
