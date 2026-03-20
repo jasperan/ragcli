@@ -66,7 +66,8 @@ def mock_config():
         'ollama': {
             'embedding_model': 'nomic-embed-text',
             'chat_model': 'llama2',
-            'endpoint': 'http://localhost:11434'
+            'endpoint': 'http://localhost:11434',
+            'timeout': 30
         },
         'rag': {
             'top_k': 5,
@@ -195,7 +196,7 @@ class TestQueryFunctionality:
     @patch('ragcli.core.rag_engine.OracleClient')
     @patch('ragcli.core.rag_engine.log_query')
     @patch('ragcli.core.rag_engine.generate_response')
-    @patch('ragcli.core.rag_engine.search_chunks')
+    @patch('ragcli.core.rag_engine._search_chunks_internal')
     def test_ask_query(self, mock_search, mock_gen, mock_log, mock_client, mock_config):
         """Test asking a query."""
         mock_search.return_value = {
@@ -314,7 +315,7 @@ def test_full_pipeline_integration(sample_files, mock_config, mock_db):
     """Test full upload-query pipeline."""
     with patch('ragcli.core.rag_engine.generate_embedding') as mock_emb, \
          patch('ragcli.core.rag_engine.generate_response') as mock_gen, \
-         patch('ragcli.core.rag_engine.search_chunks') as mock_search, \
+         patch('ragcli.core.rag_engine._search_chunks_internal') as mock_search, \
          patch('ragcli.core.rag_engine.log_query') as mock_log:
 
         mock_emb.return_value = [0.1] * 768

@@ -268,3 +268,56 @@ class SessionTurnResponse(BaseModel):
 class SessionTurnListResponse(BaseModel):
     """List of session turns."""
     turns: List[SessionTurnResponse]
+
+
+# --- Knowledge Graph Models ---
+
+class KgEntityResponse(BaseModel):
+    entity_id: str
+    entity_name: str
+    entity_type: str
+    description: Optional[str] = None
+    mention_count: int = 1
+
+class KgRelationshipResponse(BaseModel):
+    rel_id: str
+    source_id: str
+    target_id: str
+    rel_type: str
+    weight: float = 1.0
+
+class KgEntityListResponse(BaseModel):
+    entities: List[KgEntityResponse]
+    total_count: int
+
+class KgNeighborhoodResponse(BaseModel):
+    entity: KgEntityResponse
+    neighbors: List[KgEntityResponse]
+    relationships: List[KgRelationshipResponse]
+
+
+# --- Chunk / Latency Models ---
+
+class ChunkDetailResponse(BaseModel):
+    """Detail for a single document chunk."""
+    chunk_id: str
+    chunk_number: int
+    text: str
+    token_count: int
+    character_count: int
+
+class ChunkListResponse(BaseModel):
+    """Response for listing chunks of a document."""
+    chunks: List[ChunkDetailResponse]
+    total_count: int
+
+class LatencyDataPoint(BaseModel):
+    """Single query latency record."""
+    query_id: str
+    total_time_ms: float
+    search_time_ms: float
+    generation_time_ms: float
+
+class LatencyResponse(BaseModel):
+    """Response for latency stats endpoint."""
+    data_points: List[LatencyDataPoint]
