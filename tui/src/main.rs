@@ -2,6 +2,7 @@ mod api;
 mod app;
 mod server;
 mod theme;
+mod views;
 
 use anyhow::Result;
 use api::client::ApiClient;

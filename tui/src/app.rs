@@ -10,6 +10,8 @@ use tokio::sync::mpsc;
 use std::time::Duration;
 use crate::api::client::ApiClient;
 use crate::theme::Theme;
+use crate::views::{View, query::QueryView, heatmap::HeatmapView, graph::GraphView,
+    agents::AgentsView, documents::DocumentsView, monitor::MonitorView};
 
 #[derive(Default, Clone, Copy, Display, EnumIter, FromRepr, PartialEq)]
 pub enum Tab {
@@ -50,6 +52,7 @@ pub struct App {
     pub should_quit: bool,
     pub client: ApiClient,
     pub event_tx: Option<mpsc::UnboundedSender<AppEvent>>,
+    pub views: Vec<Box<dyn View>>,
 }
 
 impl App {
@@ -59,6 +62,14 @@ impl App {
             should_quit: false,
             client,
             event_tx: None,
+            views: vec![
+                Box::new(QueryView::new()),
+                Box::new(HeatmapView::new()),
+                Box::new(GraphView::new()),
+                Box::new(AgentsView::new()),
+                Box::new(DocumentsView::new()),
+                Box::new(MonitorView::new()),
+            ],
         }
     }
 
@@ -126,7 +137,7 @@ impl App {
                 let idx = self.active_tab as usize;
                 self.active_tab = Tab::from_repr((idx + 5) % 6).unwrap_or(Tab::Query);
             }
-            _ => {}
+            _ => self.views[self.active_tab as usize].handle_key(key),
         }
     }
 
@@ -154,10 +165,8 @@ impl App {
             .block(Block::default().borders(Borders::BOTTOM).border_style(Theme::border()));
         frame.render_widget(tabs, tab_area);
 
-        // Placeholder view
-        let placeholder = Paragraph::new(format!("{} view", self.active_tab))
-            .block(Block::default().borders(Borders::ALL).border_style(Theme::border()));
-        frame.render_widget(placeholder, view_area);
+        // Delegate rendering to the active view
+        self.views[self.active_tab as usize].render(frame, view_area);
 
         // Status bar
         let status = Line::from(vec![
