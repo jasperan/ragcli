@@ -53,12 +53,12 @@ def test_upload_document(mock_preprocess, mock_chunk, mock_meta, mock_insert_doc
 @patch('ragcli.core.rag_engine.OracleClient')
 @patch('ragcli.core.rag_engine.log_query')
 @patch('ragcli.core.rag_engine.generate_response')
-@patch('ragcli.core.rag_engine.search_chunks')
+@patch('ragcli.core.rag_engine._search_chunks_internal')
 def test_ask_query(mock_search, mock_gen, mock_log, mock_client):
     """Test query asking with mocks."""
     config = {
         'rag': {'top_k': 5, 'min_similarity_score': 0.5},
-        'ollama': {'chat_model': 'test', 'embedding_model': 'test'},
+        'ollama': {'chat_model': 'test', 'embedding_model': 'test', 'endpoint': 'http://localhost:11434', 'timeout': 30},
     }
     mock_search.return_value = {
         'results': [{'document_id': 'doc1', 'text': 'sample', 'similarity_score': 0.8}],
