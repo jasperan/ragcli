@@ -52,6 +52,10 @@ from .models import (
     SessionListResponse,
     SessionTurnResponse,
     SessionTurnListResponse,
+    KgEntityResponse,
+    KgRelationshipResponse,
+    KgEntityListResponse,
+    KgNeighborhoodResponse,
 )
 from ragcli.database.vector_ops import get_embedding_graph, get_query_graph
 from ragcli.core.embedding import generate_embedding
@@ -738,6 +742,98 @@ async def get_session_turns(session_id: str, limit: int = Query(50, ge=1, le=500
     except Exception as e:
         logger.error(f"Failed to get session turns: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get session turns.")
+    finally:
+        conn.close()
+
+
+# --- Knowledge Graph Endpoints ---
+
+@app.get("/api/knowledge/entities", response_model=KgEntityListResponse)
+async def list_entities(limit: int = 100, offset: int = 0, search: Optional[str] = None):
+    """List knowledge graph entities with optional search."""
+    conn = get_db_client().get_connection()
+    try:
+        with conn.cursor() as cur:
+            if search:
+                cur.execute(
+                    "SELECT entity_id, entity_name, entity_type, description, mention_count "
+                    "FROM KG_ENTITIES WHERE UPPER(entity_name) LIKE UPPER(:1) "
+                    "ORDER BY mention_count DESC OFFSET :2 ROWS FETCH NEXT :3 ROWS ONLY",
+                    [f"%{search}%", offset, limit])
+            else:
+                cur.execute(
+                    "SELECT entity_id, entity_name, entity_type, description, mention_count "
+                    "FROM KG_ENTITIES ORDER BY mention_count DESC "
+                    "OFFSET :1 ROWS FETCH NEXT :2 ROWS ONLY", [offset, limit])
+            rows = cur.fetchall()
+            cur.execute("SELECT COUNT(*) FROM KG_ENTITIES")
+            total = cur.fetchone()[0]
+        entities = [KgEntityResponse(
+            entity_id=r[0], entity_name=r[1], entity_type=r[2],
+            description=r[3], mention_count=r[4]
+        ) for r in rows]
+        return KgEntityListResponse(entities=entities, total_count=total)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list KG entities: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list knowledge graph entities.")
+    finally:
+        conn.close()
+
+
+@app.get("/api/knowledge/entities/{entity_id}/neighbors", response_model=KgNeighborhoodResponse)
+async def get_entity_neighbors(entity_id: str):
+    """Get a knowledge graph entity and its 1-hop neighborhood."""
+    conn = get_db_client().get_connection()
+    try:
+        with conn.cursor() as cur:
+            # Get the entity itself
+            cur.execute(
+                "SELECT entity_id, entity_name, entity_type, description, mention_count "
+                "FROM KG_ENTITIES WHERE entity_id = :1", [entity_id])
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Entity not found")
+            entity = KgEntityResponse(
+                entity_id=row[0], entity_name=row[1], entity_type=row[2],
+                description=row[3], mention_count=row[4])
+
+            # Get relationships (1 hop)
+            cur.execute(
+                "SELECT r.rel_id, r.source_id, r.target_id, r.rel_type, r.weight "
+                "FROM KG_RELATIONSHIPS r "
+                "WHERE r.source_id = :1 OR r.target_id = :1", [entity_id])
+            rel_rows = cur.fetchall()
+            relationships = [KgRelationshipResponse(
+                rel_id=r[0], source_id=r[1], target_id=r[2],
+                rel_type=r[3], weight=r[4]
+            ) for r in rel_rows]
+
+            # Get neighbor entities
+            neighbor_ids = set()
+            for r in rel_rows:
+                neighbor_ids.add(r[1] if r[2] == entity_id else r[2])
+            neighbor_ids.discard(entity_id)
+
+            neighbors = []
+            for nid in neighbor_ids:
+                cur.execute(
+                    "SELECT entity_id, entity_name, entity_type, description, mention_count "
+                    "FROM KG_ENTITIES WHERE entity_id = :1", [nid])
+                nrow = cur.fetchone()
+                if nrow:
+                    neighbors.append(KgEntityResponse(
+                        entity_id=nrow[0], entity_name=nrow[1], entity_type=nrow[2],
+                        description=nrow[3], mention_count=nrow[4]))
+
+        return KgNeighborhoodResponse(
+            entity=entity, neighbors=neighbors, relationships=relationships)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get entity neighbors: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get entity neighbors.")
     finally:
         conn.close()
 
