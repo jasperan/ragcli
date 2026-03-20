@@ -191,4 +191,12 @@ impl View for HeatmapView {
     fn name(&self) -> &str {
         "Heatmap"
     }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("Left/Right", "Scroll dimensions"),
+            ("+/-", "More/fewer chunks"),
+            ("Enter", "Expand chunk text"),
+        ]
+    }
 }

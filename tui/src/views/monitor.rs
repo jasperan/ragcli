@@ -258,4 +258,10 @@ impl View for MonitorView {
     fn name(&self) -> &str {
         "System"
     }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("r", "Refresh data"),
+        ]
+    }
 }

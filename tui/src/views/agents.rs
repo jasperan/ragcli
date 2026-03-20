@@ -264,4 +264,12 @@ impl View for AgentsView {
     fn name(&self) -> &str {
         "Agents"
     }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("1-4", "Focus agent"),
+            ("Esc", "4-column view"),
+            ("r", "Replay trace"),
+        ]
+    }
 }

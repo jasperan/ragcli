@@ -280,4 +280,14 @@ impl View for GraphView {
     }
 
     fn name(&self) -> &str { "Graph" }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("Arrows", "Move focus"),
+            ("Enter", "Expand node"),
+            ("Backspace", "Collapse"),
+            ("f", "Re-layout"),
+            ("s", "Search entities"),
+        ]
+    }
 }

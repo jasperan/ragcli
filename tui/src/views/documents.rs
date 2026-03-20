@@ -353,4 +353,14 @@ impl View for DocumentsView {
     fn name(&self) -> &str {
         "Documents"
     }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("j/k", "Navigate list"),
+            ("Enter", "Load chunks"),
+            ("/", "Filter"),
+            ("d", "Delete document"),
+            ("J/K", "Scroll chunks"),
+        ]
+    }
 }

@@ -13,6 +13,7 @@ use crate::theme::Theme;
 use crate::views::{View, query::QueryView, heatmap::HeatmapView, graph::GraphView,
     agents::AgentsView, documents::DocumentsView, monitor::MonitorView};
 use crate::widgets::palette::{CommandPalette, PaletteResult};
+use crate::widgets::help::HelpOverlay;
 
 #[derive(Default, Clone, Copy, Display, EnumIter, FromRepr, PartialEq)]
 pub enum Tab {
@@ -55,6 +56,7 @@ pub struct App {
     pub event_tx: Option<mpsc::UnboundedSender<AppEvent>>,
     pub views: Vec<Box<dyn View>>,
     pub palette: CommandPalette,
+    pub help: HelpOverlay,
 }
 
 impl App {
@@ -73,6 +75,7 @@ impl App {
                 Box::new(MonitorView::new()),
             ],
             palette: CommandPalette::new(),
+            help: HelpOverlay::new(),
         }
     }
 
@@ -110,7 +113,7 @@ impl App {
 
         // Main loop
         while !self.should_quit {
-            terminal.draw(|frame| self.render(frame))?;  // self is &mut via closure
+            terminal.draw(|frame| self.render(frame))?;
             if let Some(event) = rx.recv().await {
                 match event {
                     AppEvent::Key(key) => self.handle_key(key),
@@ -143,6 +146,7 @@ impl App {
         match key {
             KeyCode::Char('q') => self.should_quit = true,
             KeyCode::Char('/') => self.palette.toggle(),
+            KeyCode::Char('?') => self.help.toggle(),
             KeyCode::Char('1') => self.active_tab = Tab::Query,
             KeyCode::Char('2') => self.active_tab = Tab::Heatmap,
             KeyCode::Char('3') => self.active_tab = Tab::Graph,
@@ -197,6 +201,15 @@ impl App {
         // Command palette overlay (rendered last so it appears on top)
         if self.palette.visible {
             self.palette.render(frame, frame.area());
+        }
+
+        // Help overlay (rendered on top of everything)
+        if self.help.visible {
+            let kb = self.views[self.active_tab as usize].keybindings();
+            let view_name = self.views[self.active_tab as usize].name().to_string();
+            let kb_refs: Vec<(&str, &str)> = kb.iter().map(|(k, v)| (*k, *v)).collect();
+            let area = frame.area();
+            self.help.render(frame, area, &view_name, &kb_refs);
         }
     }
 }

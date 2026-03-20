@@ -387,4 +387,13 @@ impl View for QueryView {
     fn name(&self) -> &str {
         "Query"
     }
+
+    fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("Enter", "Submit query"),
+            ("Esc", "Cancel/Clear"),
+            ("Ctrl+N", "New session"),
+            ("Up/Down", "Scroll response"),
+        ]
+    }
 }
