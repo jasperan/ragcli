@@ -6,7 +6,7 @@ description = "Terminal dashboard for ragcli RAG system"
 
 [dependencies]
 ratatui = "0.30"
-crossterm = "0.29"
+crossterm = { version = "0.29", features = ["event-stream"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.13", features = ["json", "stream"] }
 serde = { version = "1", features = ["derive"] }

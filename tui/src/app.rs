@@ -1,10 +1,13 @@
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{Event, KeyCode, KeyEventKind, EventStream};
+use futures_util::StreamExt;
 use ratatui::{DefaultTerminal, Frame};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
 use ratatui::text::Line;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
+use tokio::sync::mpsc;
+use std::time::Duration;
 use crate::api::client::ApiClient;
 use crate::theme::Theme;
 
@@ -25,10 +28,28 @@ pub enum Tab {
     Monitor,
 }
 
+pub enum AppEvent {
+    Key(KeyCode),
+    Tick,
+    ApiResponse(ApiMessage),
+    Resize(u16, u16),
+}
+
+#[derive(Debug)]
+pub enum ApiMessage {
+    Health(super::api::models::SystemStatus),
+    Stats(super::api::models::SystemStats),
+    Documents(super::api::models::DocumentListResponse),
+    Models(super::api::models::ModelsResponse),
+    QueryResult(super::api::models::QueryResponse),
+    Error(String),
+}
+
 pub struct App {
     pub active_tab: Tab,
     pub should_quit: bool,
     pub client: ApiClient,
+    pub event_tx: Option<mpsc::UnboundedSender<AppEvent>>,
 }
 
 impl App {
@@ -37,17 +58,51 @@ impl App {
             active_tab: Tab::Query,
             should_quit: false,
             client,
+            event_tx: None,
         }
     }
 
     pub async fn run(&mut self, mut terminal: DefaultTerminal) -> Result<()> {
+        let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
+
+        // Terminal event reader task
+        let tx_keys = tx.clone();
+        tokio::spawn(async move {
+            let mut stream = EventStream::new();
+            while let Some(Ok(evt)) = stream.next().await {
+                let app_evt = match evt {
+                    Event::Key(k) if k.kind == KeyEventKind::Press => {
+                        AppEvent::Key(k.code)
+                    }
+                    Event::Resize(w, h) => AppEvent::Resize(w, h),
+                    _ => continue,
+                };
+                if tx_keys.send(app_evt).is_err() { break; }
+            }
+        });
+
+        // Tick timer task (60fps render)
+        let tx_tick = tx.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(16));
+            loop {
+                interval.tick().await;
+                if tx_tick.send(AppEvent::Tick).is_err() { break; }
+            }
+        });
+
+        // Store sender for API tasks to use later
+        self.event_tx = Some(tx);
+
+        // Main loop
         while !self.should_quit {
             terminal.draw(|frame| self.render(frame))?;
-            if event::poll(std::time::Duration::from_millis(16))? {
-                if let Event::Key(key) = event::read()? {
-                    if key.kind == KeyEventKind::Press {
-                        self.handle_key(key.code);
-                    }
+            if let Some(event) = rx.recv().await {
+                match event {
+                    AppEvent::Key(key) => self.handle_key(key),
+                    AppEvent::Tick => { /* views will use this for animations/refreshes */ }
+                    AppEvent::ApiResponse(msg) => self.handle_api_message(msg),
+                    AppEvent::Resize(_, _) => { /* ratatui handles resize automatically */ }
                 }
             }
         }
@@ -71,6 +126,13 @@ impl App {
                 let idx = self.active_tab as usize;
                 self.active_tab = Tab::from_repr((idx + 5) % 6).unwrap_or(Tab::Query);
             }
+            _ => {}
+        }
+    }
+
+    fn handle_api_message(&mut self, msg: ApiMessage) {
+        // Will be filled per-view in later tasks
+        match msg {
             _ => {}
         }
     }
