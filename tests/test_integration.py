@@ -87,14 +87,15 @@ def mock_db():
         mock_client.return_value.get_connection.return_value = mock_conn
         mock_client.return_value.close.return_value = None
 
-        with patch('ragcli.database.vector_ops.insert_document') as mock_insert_doc:
-            with patch('ragcli.database.vector_ops.insert_chunk') as mock_insert_chunk:
+        with patch('ragcli.core.rag_engine.insert_document') as mock_insert_doc:
+            with patch('ragcli.core.rag_engine.insert_chunks_batch') as mock_insert_batch:
                 mock_insert_doc.return_value = "test-doc-id"
+                mock_insert_batch.return_value = ["chunk-id-1"]
                 yield {
                     'client': mock_client,
                     'conn': mock_conn,
                     'insert_doc': mock_insert_doc,
-                    'insert_chunk': mock_insert_chunk
+                    'insert_batch': mock_insert_batch
                 }
 
 

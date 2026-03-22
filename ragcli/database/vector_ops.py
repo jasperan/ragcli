@@ -99,6 +99,45 @@ def insert_chunk(
         })
     return chunk_id
 
+def insert_chunks_batch(
+    conn: oracledb.Connection,
+    doc_id: str,
+    chunks: list,
+    embedding_model: str = "nomic-embed-text"
+) -> list:
+    """Batch-insert chunks with embeddings using executemany. Returns chunk_ids."""
+    sql = """
+    INSERT INTO CHUNKS (
+        chunk_id, document_id, chunk_number, chunk_text, token_count,
+        character_count, start_position, end_position, chunk_embedding, embedding_model
+    ) VALUES (
+        :v_chunk_id, :v_doc_id, :v_chunk_num, :v_text, :v_token_count,
+        :v_char_count, :v_start, :v_end, TO_VECTOR(:v_embedding), :v_model
+    )
+    """
+    rows = []
+    chunk_ids = []
+    for c in chunks:
+        cid = generate_id()
+        chunk_ids.append(cid)
+        rows.append({
+            'v_chunk_id': cid,
+            'v_doc_id': doc_id,
+            'v_chunk_num': c['chunk_number'],
+            'v_text': c['text'],
+            'v_token_count': c['token_count'],
+            'v_char_count': c['char_count'],
+            'v_start': c.get('start_pos', 0),
+            'v_end': c.get('end_pos', 0),
+            'v_embedding': json.dumps(c.get('embedding', [])),
+            'v_model': embedding_model,
+        })
+    if rows:
+        with conn.cursor() as cursor:
+            cursor.executemany(sql, rows)
+    return chunk_ids
+
+
 def search_similar(
     conn: oracledb.Connection,
     query_embedding: List[float],

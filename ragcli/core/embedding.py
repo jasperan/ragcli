@@ -9,38 +9,52 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Reuse a single HTTP session for Ollama calls (TCP keep-alive, connection pooling)
+_http_session: Optional[requests.Session] = None
+
+
+def _get_http_session() -> requests.Session:
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        # Allow up to 10 connections to the same Ollama host
+        adapter = requests.adapters.HTTPAdapter(pool_connections=5, pool_maxsize=10)
+        _http_session.mount("http://", adapter)
+        _http_session.mount("https://", adapter)
+    return _http_session
+
 def generate_embedding(text: str, model: str, config: dict, progress_callback: Optional[Callable] = None, conn=None) -> List[float]:
     """Generate embedding for text using Ollama API or OracleEmbeddings."""
-    
+
     # Check if using Oracle embeddings
     # We use 'database' provider as default for on-db models, or others if specified
     use_oracle_embeddings = config.get('vector_index', {}).get('use_oracle_embeddings', False)
-    
+
     if conn and use_oracle_embeddings:
         try:
             from .oracle_integration import OracleIntegrationManager
             manager = OracleIntegrationManager(conn)
-            
+
             # Params for OracleEmbeddings
             params = config.get('vector_index', {}).get('oracle_embedding_params', {
-                "provider": "database", 
+                "provider": "database",
                 "model": "all_minilm_l12_v2" # Default on-db model alias
             })
-            
+
             # Override model if passed explicitly and not default
             # But usually 'model' arg here comes from config['ollama']['embedding_model'] which might be 'nomic-embed-text'
             # If we are using Oracle, we ignore the local ollama model requirement
-            
+
             embeddings = manager.generate_embeddings([text], params=params)
             if embeddings:
                 return embeddings[0]
         except Exception as e:
             logger.error(f"Oracle embedding failed: {e}")
-            # Fallback to Ollama or raise? Let's fallback or raise. 
+            # Fallback to Ollama or raise? Let's fallback or raise.
             # If explicit config for Oracle, we should probably fail if it doesn't work.
             if config.get('vector_index', {}).get('strict_oracle_embeddings', False):
                 raise
-    
+
     # Fallback / Default: Ollama
     endpoint = config['ollama']['endpoint']
     timeout = config['ollama']['timeout']
@@ -50,7 +64,7 @@ def generate_embedding(text: str, model: str, config: dict, progress_callback: O
             "model": model,
             "prompt": text
         }
-        response = requests.post(
+        response = _get_http_session().post(
             f"{endpoint}/api/embeddings",
             json=payload,
             timeout=timeout
@@ -79,23 +93,23 @@ def batch_generate_embeddings(
     Generate embeddings for multiple texts with progress tracking.
     """
     use_oracle_embeddings = config.get('vector_index', {}).get('use_oracle_embeddings', False)
-    
+
     if conn and use_oracle_embeddings:
         # Use batch capability of OracleEmbeddings
         try:
             from .oracle_integration import OracleIntegrationManager
             manager = OracleIntegrationManager(conn)
             params = config.get('vector_index', {}).get('oracle_embedding_params', {
-                "provider": "database", 
+                "provider": "database",
                 "model": "all_minilm_l12_v2"
             })
-            
+
             embeddings = manager.generate_embeddings(texts, params=params)
-             
+
             # Update progress manually since it's one call
             if progress_callback:
                 progress_callback(len(texts), len(texts))
-                
+
             return embeddings
         except Exception as e:
             logger.error(f"Oracle batch embedding failed: {e}")
@@ -104,14 +118,14 @@ def batch_generate_embeddings(
 
     embeddings = []
     total = len(texts)
-    
+
     for i, text in enumerate(texts, 1):
         embedding = generate_embedding(text, model, config, conn=conn) # conn passed but individual call reuse logic
         embeddings.append(embedding)
-        
+
         if progress_callback:
             progress_callback(i, total)
-    
+
     return embeddings
 
 def generate_response(
@@ -131,7 +145,7 @@ def generate_response(
             "stream": False,
             "temperature": 0.7,
         }
-        response = requests.post(
+        response = _get_http_session().post(
             f"{endpoint}/api/chat",
             json=payload,
             timeout=timeout,
@@ -147,7 +161,7 @@ def generate_response(
             "stream": True,
             "temperature": 0.7,
         }
-        response = requests.post(
+        response = _get_http_session().post(
             f"{endpoint}/api/chat",
             json=payload,
             timeout=timeout,

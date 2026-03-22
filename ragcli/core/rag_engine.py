@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional, Generator
 from .document_processor import preprocess_document, chunk_text, get_document_metadata
 from .embedding import generate_embedding, generate_response, batch_generate_embeddings
 from .similarity_search import search_chunks as _search_chunks_internal
-from ..database.vector_ops import insert_document, insert_chunk, log_query
+from ..database.vector_ops import insert_document, insert_chunk, insert_chunks_batch, log_query
 from ..database.oracle_client import OracleClient
 from ..config.config_manager import load_config
 from ..memory.session import SessionManager
@@ -79,25 +79,25 @@ def upload_document(file_path: str, config: Optional[dict] = None, progress=None
         embedding_model = config['ollama']['embedding_model']
         total_chunks = len(chunks)
 
+        # Generate embeddings (still sequential HTTP, but with connection reuse)
         for i, chunk_data in enumerate(chunks):
-            chunk_content = chunk_data['text']
-            token_count = chunk_data['token_count']
-            char_count = chunk_data['char_count']
-
-            emb = generate_embedding(chunk_content, embedding_model, config, conn=conn)
-
-            insert_chunk(
-                conn, doc_id, i+1, chunk_content, token_count, char_count,
-                embedding=emb, embedding_model=embedding_model
+            chunk_data['embedding'] = generate_embedding(
+                chunk_data['text'], embedding_model, config, conn=conn
             )
+            chunk_data['chunk_number'] = i + 1
 
             if progress:
-                chunk_progress = 50 + int((i + 1) / total_chunks * 50)
+                chunk_progress = 50 + int((i + 1) / total_chunks * 45)
                 progress.update(
                     process_task,
                     completed=chunk_progress,
                     description=f"[cyan]Embedding chunk {i+1}/{total_chunks}..."
                 )
+
+        # Batch insert all chunks in a single DB round-trip
+        if progress:
+            progress.update(process_task, completed=95, description="[cyan]Writing to database...")
+        insert_chunks_batch(conn, doc_id, chunks, embedding_model=embedding_model)
 
         conn.commit()
 

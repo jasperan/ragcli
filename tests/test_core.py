@@ -7,13 +7,13 @@ from ragcli.core.rag_engine import upload_document, ask_query
 
 @patch('ragcli.core.rag_engine.OracleClient')
 @patch('ragcli.core.rag_engine.generate_embedding')
-@patch('ragcli.core.rag_engine.insert_chunk')
+@patch('ragcli.core.rag_engine.insert_chunks_batch')
 @patch('ragcli.core.rag_engine.insert_document')
 @patch('ragcli.core.rag_engine.get_document_metadata')
 @patch('ragcli.core.rag_engine.chunk_text')
 @patch('ragcli.core.rag_engine.preprocess_document')
 def test_upload_document(mock_preprocess, mock_chunk, mock_meta, mock_insert_doc,
-                         mock_insert_chunk, mock_emb, mock_client, tmp_path):
+                         mock_insert_batch, mock_emb, mock_client, tmp_path):
     """Test document upload with mocks."""
     # Create a real temp file
     test_file = tmp_path / "test.txt"
@@ -37,6 +37,7 @@ def test_upload_document(mock_preprocess, mock_chunk, mock_meta, mock_insert_doc
     }
     mock_insert_doc.return_value = "test-doc-id"
     mock_emb.return_value = [0.1] * 768
+    mock_insert_batch.return_value = ["chunk-id-1"]
 
     mock_conn = MagicMock()
     mock_client.return_value.get_connection.return_value = mock_conn
@@ -44,7 +45,7 @@ def test_upload_document(mock_preprocess, mock_chunk, mock_meta, mock_insert_doc
     metadata = upload_document(str(test_file), config)
 
     mock_insert_doc.assert_called_once()
-    mock_insert_chunk.assert_called()
+    mock_insert_batch.assert_called_once()
     assert metadata['chunk_count'] == 1
     assert metadata['document_id'] == 'test-doc-id'
     assert metadata['filename'] == 'test.txt'
