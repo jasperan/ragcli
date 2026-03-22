@@ -135,11 +135,24 @@ async def upload_document_endpoint(file: UploadFile = File(...)):
         # Sanitize the uploaded filename
         safe_filename = sanitize_filename(file.filename or "upload")
 
-        # Save uploaded file to temp location
+        # Read file in chunks to enforce size limit before consuming all memory
+        max_size = config.get('documents', {}).get('max_file_size_mb', 100) * 1024 * 1024
         suffix = os.path.splitext(safe_filename)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-            content = await file.read()
-            tmp_file.write(content)
+            bytes_written = 0
+            while True:
+                chunk = await file.read(1024 * 1024)  # 1MB at a time
+                if not chunk:
+                    break
+                bytes_written += len(chunk)
+                if bytes_written > max_size:
+                    tmp_file.close()
+                    os.unlink(tmp_file.name)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large (max {config.get('documents', {}).get('max_file_size_mb', 100)}MB)"
+                    )
+                tmp_file.write(chunk)
             tmp_path = tmp_file.name
 
         # Process document
@@ -304,13 +317,13 @@ async def _stream_query(request: QueryRequest):
 
         model = cfg.get("ollama", {}).get("chat_model", "gemma3:270m")
         messages = _bp(request.query, chunks, cfg)
-        # Ollama HTTP streaming naturally yields between tokens; no DB connection held here.
         for token in _gr(messages, model, cfg, stream=True):
             yield f"event: token\ndata: {_json.dumps({'token': token})}\n\n"
 
         yield f"event: done\ndata: {_json.dumps({'status': 'complete'})}\n\n"
     except Exception as e:
-        yield f"event: error\ndata: {_json.dumps({'error': str(e)})}\n\n"
+        logger.error(f"SSE stream error: {e}", exc_info=True)
+        yield f"event: error\ndata: {_json.dumps({'error': 'Query processing failed. Check server logs.'})}\n\n"
 
 
 @app.post("/api/query", response_model=QueryResponse)

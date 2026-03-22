@@ -30,9 +30,9 @@ def insert_document(
     """Insert a new document and return its ID."""
     doc_id = generate_id()
     metadata_json = json.dumps(metadata or {})
-    
+
     approx_emb_size = chunk_count * embedding_dimension * 4  # bytes, float32
-    
+
     sql = """
     INSERT INTO DOCUMENTS (
         document_id, filename, file_format, file_size_bytes, extracted_text_size_bytes,
@@ -74,7 +74,7 @@ def insert_chunk(
 ) -> str:
     """Insert a chunk with embedding."""
     chunk_id = generate_id()
-    
+
     sql = """
     INSERT INTO CHUNKS (
         chunk_id, document_id, chunk_number, chunk_text, token_count,
@@ -223,15 +223,22 @@ def log_query(
     INSERT INTO QUERIES (
         query_id, query_text, query_embedding, selected_documents, top_k,
         similarity_threshold, response_text, response_tokens,
-        embedding_time_ms, search_time_ms, generation_time_ms
+        embedding_time_ms, search_time_ms, generation_time_ms, total_time_ms
     ) VALUES (
         :v_query_id, :v_query_text, TO_VECTOR(:v_query_emb), :v_docs, :v_top_k,
         :v_threshold, :v_response, :v_resp_tokens,
-        :v_emb_time, :v_search_time, :v_gen_time
+        :v_emb_time, :v_search_time, :v_gen_time, :v_total_time
     )
     """
 
     docs_str = ",".join(selected_documents) if selected_documents else None
+    total_time_ms = timing.get('total_time_ms')
+    if total_time_ms is None:
+        total_time_ms = (
+            timing.get('embedding_time_ms', 0)
+            + timing.get('search_time_ms', 0)
+            + timing.get('generation_time_ms', 0)
+        )
 
     with conn.cursor() as cursor:
         cursor.execute(sql, {
@@ -245,7 +252,8 @@ def log_query(
             'v_resp_tokens': response_tokens,
             'v_emb_time': timing.get('embedding_time_ms', 0),
             'v_search_time': timing.get('search_time_ms', 0),
-            'v_gen_time': timing.get('generation_time_ms', 0)
+            'v_gen_time': timing.get('generation_time_ms', 0),
+            'v_total_time': total_time_ms,
         })
 
         # Insert query results

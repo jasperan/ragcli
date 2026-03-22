@@ -274,17 +274,34 @@ def sanitize_filename(filename: str) -> str:
         filename: Original filename
 
     Returns:
-        Sanitized filename
+        Sanitized filename safe for filesystem use
     """
-    # Remove or replace dangerous characters
-    dangerous_chars = '<>:"/\\|?*'
-    sanitized = filename
+    if not filename or not filename.strip():
+        return "upload"
 
+    # Strip path components — only keep the final segment
+    sanitized = filename.replace("\\", "/")
+    sanitized = sanitized.split("/")[-1]
+
+    # Remove or replace dangerous characters
+    dangerous_chars = '<>:"|?*'
     for char in dangerous_chars:
         sanitized = sanitized.replace(char, '_')
 
     # Remove control characters
     sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', sanitized)
+
+    # Strip leading/trailing dots and spaces (prevents ".." and "..." names)
+    sanitized = sanitized.strip('. ')
+
+    # Handle Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    stem = sanitized.split('.')[0].upper() if '.' in sanitized else sanitized.upper()
+    if stem in {'CON', 'PRN', 'AUX', 'NUL'} or re.match(r'^(COM|LPT)\d$', stem):
+        sanitized = f"_{sanitized}"
+
+    # Fallback if everything was stripped
+    if not sanitized:
+        return "upload"
 
     # Limit length
     max_length = 255
@@ -293,4 +310,4 @@ def sanitize_filename(filename: str) -> str:
         name = name[:max_length - len(ext) - 1] if ext else name[:max_length]
         sanitized = f"{name}.{ext}" if ext else name
 
-    return sanitized.strip()
+    return sanitized
