@@ -47,11 +47,11 @@ class OracleClient:
             increment=1,
             **params
         )
-    
+
     def get_connection(self) -> oracledb.Connection:
         """Get a connection from the pool."""
         return self.pool.acquire()
-    
+
     def init_db(self):
         """Initialize database schemas and indexes if they don't exist."""
         conn = self.get_connection()
@@ -101,10 +101,8 @@ class OracleClient:
         finally:
             cursor.close()
             conn.close()
-    
+
     def close(self):
         """Close the pool."""
         if self.pool:
             self.pool.close()
-
-# TODO: Implement retries in _connect(), auto-index selection based on data size

@@ -22,5 +22,3 @@ def pdf_to_markdown(pdf_path: str, config: dict) -> Optional[str]:
             if page_text:
                 text += page_text + "\n\n"
     return text.strip()
-
-# TODO: Batch pages, error retries (2), post-process markdown, handle non-PDF

@@ -464,6 +464,3 @@ def get_query_graph(
                 })
 
     return result
-
-
-# TODO: Batch inserts, retries, index maintenance

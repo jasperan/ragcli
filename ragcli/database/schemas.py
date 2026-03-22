@@ -282,5 +282,3 @@ CREATE TABLE SYNC_EVENTS (
         ("SYNC_SOURCES", SYNC_SOURCES_TABLE),
         ("SYNC_EVENTS", SYNC_EVENTS_TABLE),
     ]
-
-# TODO: Auto-select index type based on data size (HNSW/IVF/HYBRID)

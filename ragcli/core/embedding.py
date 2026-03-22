@@ -186,5 +186,3 @@ def generate_response(
     except Exception as e:
         logger.error(f"Failed to generate response for model {model}", exc_info=True)
         raise Exception(f"Response generation failed: {e}")
-
-# TODO: Add token counting, OpenAI-compatible endpoint support, more error handling

@@ -3,7 +3,6 @@
 import os
 import tempfile
 import time
-import uuid
 from collections import defaultdict
 from datetime import datetime
 from typing import List, Optional
@@ -143,12 +142,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Startup/shutdown lifecycle for the FastAPI app."""
+    yield
+    # Shutdown: clean up connection pool
+    global _db_client
+    if _db_client is not None:
+        _db_client.close()
+        _db_client = None
+
+
 # Create FastAPI app
 app = FastAPI(
     title="ragcli API",
     description="REST API for RAG operations with Oracle 26ai and Ollama",
     version="1.0.0",
-    docs_url="/docs" if config.get('api', {}).get('enable_swagger', True) else None
+    docs_url="/docs" if config.get('api', {}).get('enable_swagger', True) else None,
+    lifespan=lifespan,
 )
 
 # Rate limiting + body size enforcement
@@ -164,15 +178,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up connection pool on shutdown."""
-    global _db_client
-    if _db_client is not None:
-        _db_client.close()
-        _db_client = None
 
 
 @app.get("/")

@@ -17,14 +17,14 @@ def search_chunks(
     """Perform similarity search for query, return results with metrics."""
     if config is None:
         config = load_config()
-    
+
     start_time = time.perf_counter()
-    
+
     # Generate query embedding
     emb_start = time.perf_counter()
     query_embedding = generate_embedding(query, config['ollama']['embedding_model'], config)
     emb_time = time.perf_counter() - emb_start
-    
+
     # Get client and search
     client = OracleClient(config)
     search_start = time.perf_counter()
@@ -34,9 +34,9 @@ def search_chunks(
     finally:
         conn.close()
     search_time = time.perf_counter() - search_start
-    
+
     total_time = time.perf_counter() - start_time
-    
+
     metrics = {
         'embedding_time_ms': emb_time * 1000,
         'search_time_ms': search_time * 1000,
@@ -44,11 +44,9 @@ def search_chunks(
         'num_results': len(results),
         'avg_similarity': sum(r['similarity_score'] for r in results) / len(results) if results else 0
     }
-    
+
     return {
         'results': results,
         'query_embedding': query_embedding,
         'metrics': metrics
     }
-
-# TODO: Log to QUERIES/QUERY_RESULTS, reranking, more advanced filtering
