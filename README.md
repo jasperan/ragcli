@@ -10,7 +10,7 @@
 [![React](https://img.shields.io/badge/React-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![PyPI](https://img.shields.io/badge/PyPI-oracle--ragcli-blue.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ragcli/)
 [![Version](https://img.shields.io/badge/version-2.0.1-brightgreen.svg?style=for-the-badge)](https://github.com/jasperan/ragcli/releases)
-[![Tests](https://img.shields.io/badge/tests-152_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
+[![Tests](https://img.shields.io/badge/tests-222_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -103,7 +103,7 @@ Each view has its own keybindings. Press `?` inside any view to see them.
 
 - **Oracle Database 26ai**: AI Vector Search with HNSW/IVF auto-indexing
 - **Ollama**: Local LLM inference (default: `qwen3.5:35b-a3b` for chat, `nomic-embed-text` for embeddings)
-- **29 API endpoints**: Documents, query (with SSE streaming), models, feedback, eval, sync, sessions, knowledge graph, latency stats
+- **30 API endpoints**: Documents, query (SSE streaming), models, feedback, eval, sync, sessions, knowledge graph, latency stats, health probe
 - **9 CLI commands**: `ragcli eval synthetic|replay|report|runs`, `ragcli sync add|list|status|remove|events`
 - **17 database tables**: Documents, chunks, queries, sessions, knowledge graph, traces, feedback, eval, sync
 - **React frontend**: Google-style search, drag-drop upload, animated vector heatmaps
@@ -116,7 +116,9 @@ Each view has its own keybindings. Press `?` inside any view to see them.
 
 ![](./img/4.png)
 
-Prerequisites Before starting with ragcli:
+## Prerequisites
+
+Before starting with ragcli:
 1. **Oracle Database 26ai**: Set up with vector capabilities. You will need to provide the name, password, and DSN in the config.yaml.
 2. **Ollama**: Download and run `ollama serve` to start the server. Pull models: `ollama pull nomic-embed-text` (embeddings), `ollama pull gemma3:270m` (chat).
 3. **Python 3.9+**: With pip installed.
