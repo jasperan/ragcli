@@ -248,8 +248,14 @@ def ask_query(
             finally:
                 conn.close()
 
-        # Search
-        search_result = _search_chunks_internal(query, top_k, min_similarity, document_ids, config)
+        # Search — pass a connection from our pool to avoid creating another pool
+        search_conn = client.get_connection()
+        try:
+            search_result = _search_chunks_internal(
+                query, top_k, min_similarity, document_ids, config, conn=search_conn,
+            )
+        finally:
+            search_conn.close()
         results = search_result['results']
         search_metrics = search_result['metrics']
 
@@ -352,11 +358,12 @@ def search_chunks(
     """Search for relevant chunks. Returns (chunks_list, query_embedding).
 
     This wrapper adapts the streaming-friendly signature expected by the SSE
-    endpoint to the internal similarity-search implementation.  The ``conn``
-    parameter is accepted for API compatibility but the underlying helper
-    manages its own connection, so it is ignored here.
+    endpoint to the internal similarity-search implementation.  When ``conn``
+    is provided it is passed through to avoid creating a new connection pool.
     """
-    search_result = _search_chunks_internal(query, top_k, min_similarity, document_ids, config)
+    search_result = _search_chunks_internal(
+        query, top_k, min_similarity, document_ids, config, conn=conn,
+    )
     return search_result['results'], search_result['query_embedding']
 
 

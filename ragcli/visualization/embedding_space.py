@@ -224,24 +224,90 @@ def create_3d_embedding_plot(
     return fig
 
 
-def get_embeddings_for_visualization(query_id: Optional[str] = None, config: Optional[dict] = None) -> Tuple[List[List[float]], List[str], Optional[List[float]]]:
-    """Get embeddings and labels for visualization from recent query or all documents.
+def get_embeddings_for_visualization(
+    query_id: Optional[str] = None,
+    config: Optional[dict] = None,
+    conn=None,
+    limit: int = 200,
+) -> Tuple[List[List[float]], List[str], Optional[List[float]]]:
+    """Get embeddings and labels for visualization from DB.
+
+    If ``query_id`` is provided, returns chunks from that query's results
+    with their similarity scores. Otherwise returns the most recent chunks.
 
     Args:
         query_id: Optional query ID to get relevant embeddings
         config: Configuration dictionary
+        conn: Optional Oracle connection (caller manages lifecycle)
+        limit: Max chunks to return
 
     Returns:
         Tuple of (embeddings, labels, similarities)
     """
-    # TODO: Implement database queries to get embeddings
-    # For now, return empty - this would need database access
     if config is None:
         config = load_config()
 
-    # Placeholder - would need to query chunks table
+    owns_conn = conn is None
+    client = None
+    if owns_conn:
+        from ..database.oracle_client import OracleClient
+        client = OracleClient(config)
+        conn = client.get_connection()
+
     embeddings = []
     labels = []
     similarities = None
 
-    return embeddings, labels, similarities
+    try:
+        with conn.cursor() as cur:
+            if query_id:
+                cur.execute(
+                    """SELECT c.chunk_embedding, d.filename || ' #' || c.chunk_number,
+                              qr.similarity_score
+                       FROM QUERY_RESULTS qr
+                       JOIN CHUNKS c ON qr.chunk_id = c.chunk_id
+                       JOIN DOCUMENTS d ON c.document_id = d.document_id
+                       WHERE qr.query_id = :qid
+                       ORDER BY qr.rank
+                       FETCH FIRST :lim ROWS ONLY""",
+                    {"qid": query_id, "lim": limit},
+                )
+                similarities = []
+                for row in cur:
+                    emb = row[0]
+                    if hasattr(emb, 'tolist'):
+                        emb = emb.tolist()
+                    else:
+                        emb = list(emb) if emb else []
+                    if emb:
+                        embeddings.append(emb)
+                        labels.append(str(row[1]))
+                        similarities.append(float(row[2]))
+            else:
+                cur.execute(
+                    """SELECT c.chunk_embedding, d.filename || ' #' || c.chunk_number
+                       FROM CHUNKS c
+                       JOIN DOCUMENTS d ON c.document_id = d.document_id
+                       ORDER BY c.created_at DESC
+                       FETCH FIRST :lim ROWS ONLY""",
+                    {"lim": limit},
+                )
+                for row in cur:
+                    emb = row[0]
+                    if hasattr(emb, 'tolist'):
+                        emb = emb.tolist()
+                    else:
+                        emb = list(emb) if emb else []
+                    if emb:
+                        embeddings.append(emb)
+                        labels.append(str(row[1]))
+    except Exception as e:
+        from ..utils.logger import get_logger
+        get_logger(__name__).warning(f"Failed to fetch embeddings for visualization: {e}")
+    finally:
+        if owns_conn:
+            conn.close()
+            if client:
+                client.close()
+
+    return embeddings, labels, similarities if similarities else None

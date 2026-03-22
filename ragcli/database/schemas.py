@@ -18,6 +18,7 @@ CREATE TABLE DOCUMENTS (
     embedding_dimension NUMBER DEFAULT {dimension},
     approximate_embedding_size_bytes NUMBER,
     ocr_processed       VARCHAR2(1) DEFAULT 'N',
+    content_hash        VARCHAR2(64),                   -- SHA-256 for deduplication
     status              VARCHAR2(20) DEFAULT 'READY',  -- PROCESSING, READY, ERROR
     metadata_json       CLOB,
     created_at          TIMESTAMP DEFAULT SYSTIMESTAMP,

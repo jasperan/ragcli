@@ -49,11 +49,11 @@ def insert_document(
     INSERT INTO DOCUMENTS (
         document_id, filename, file_format, file_size_bytes, extracted_text_size_bytes,
         chunk_count, total_tokens, embedding_dimension, approximate_embedding_size_bytes,
-        ocr_processed, metadata_json
+        ocr_processed, content_hash, metadata_json
     ) VALUES (
         :v_doc_id, :v_filename, :v_file_format, :v_file_size_bytes, :v_extracted_size,
         :v_chunk_count, :v_total_tokens, :v_dim, :v_approx_size, :v_ocr,
-        :v_metadata
+        :v_content_hash, :v_metadata
     )
     """
     with conn.cursor() as cursor:
@@ -68,6 +68,7 @@ def insert_document(
             'v_dim': embedding_dimension,
             'v_approx_size': approx_emb_size,
             'v_ocr': ocr_processed,
+            'v_content_hash': content_hash,
             'v_metadata': metadata_json
         })
     return doc_id
