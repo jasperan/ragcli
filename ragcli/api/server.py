@@ -2,12 +2,15 @@
 
 import os
 import tempfile
+import time
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 
 from ragcli.config.config_manager import load_config
@@ -84,6 +87,62 @@ def get_db_client() -> OracleClient:
         _db_client = OracleClient(config)
     return _db_client
 
+# ---------------------------------------------------------------------------
+# Lightweight rate limiter (in-memory, per-IP token bucket, no external deps)
+# ---------------------------------------------------------------------------
+
+class _TokenBucket:
+    """Per-key token-bucket rate limiter."""
+
+    def __init__(self, rate: float, burst: int):
+        self.rate = rate      # tokens per second
+        self.burst = burst    # max bucket size
+        self._buckets: dict = defaultdict(lambda: [burst, time.monotonic()])
+
+    def allow(self, key: str) -> bool:
+        tokens, last = self._buckets[key]
+        now = time.monotonic()
+        elapsed = now - last
+        tokens = min(self.burst, tokens + elapsed * self.rate)
+        if tokens >= 1:
+            self._buckets[key] = [tokens - 1, now]
+            return True
+        self._buckets[key] = [tokens, now]
+        return False
+
+
+# Configurable: 10 req/s burst 20 for general, 2 req/s burst 5 for expensive ops
+_general_limiter = _TokenBucket(rate=10, burst=20)
+_expensive_limiter = _TokenBucket(rate=2, burst=5)
+_EXPENSIVE_PATHS = {"/api/query", "/api/documents/upload", "/api/eval/run"}
+
+# Max request body: 110MB (slightly above max_file_size_mb to allow multipart overhead)
+_MAX_BODY_BYTES = (config.get('documents', {}).get('max_file_size_mb', 100) + 10) * 1024 * 1024
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+
+        limiter = _expensive_limiter if path in _EXPENSIVE_PATHS else _general_limiter
+        if not limiter.allow(client_ip):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down."},
+            )
+
+        # Enforce body size limit
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > _MAX_BODY_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large."},
+            )
+
+        return await call_next(request)
+
+
 # Create FastAPI app
 app = FastAPI(
     title="ragcli API",
@@ -91,6 +150,9 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs" if config.get('api', {}).get('enable_swagger', True) else None
 )
+
+# Rate limiting + body size enforcement
+app.add_middleware(RateLimitMiddleware)
 
 # CORS middleware — only enable credentials when origins are explicitly specified
 cors_origins = config.get('api', {}).get('cors_origins', ["*"])
