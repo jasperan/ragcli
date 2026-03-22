@@ -191,6 +191,66 @@ async def root():
     }
 
 
+@app.get("/api/health")
+async def health_check():
+    """Readiness probe: checks DB connectivity and Ollama availability with latency."""
+    import asyncio
+    import time as _time
+
+    checks = {}
+
+    # DB probe
+    def _probe_db():
+        t0 = _time.perf_counter()
+        try:
+            client = get_db_client()
+            conn = client.get_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1 FROM DUAL")
+                    cur.fetchone()
+                return {"status": "ok", "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+            finally:
+                conn.close()
+        except Exception as e:
+            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+
+    # Ollama probe
+    def _probe_ollama():
+        t0 = _time.perf_counter()
+        try:
+            from ragcli.core.embedding import _get_http_session
+            resp = _get_http_session().get(
+                f"{config['ollama']['endpoint']}/api/tags",
+                timeout=5,
+            )
+            resp.raise_for_status()
+            model_count = len(resp.json().get("models", []))
+            return {"status": "ok", "models": model_count, "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+        except Exception as e:
+            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+
+    # Embedding cache stats
+    from ragcli.core.embedding import get_embedding_cache
+    cache_stats = get_embedding_cache().stats()
+
+    db_result, ollama_result = await asyncio.gather(
+        asyncio.to_thread(_probe_db),
+        asyncio.to_thread(_probe_ollama),
+    )
+    checks["database"] = db_result
+    checks["ollama"] = ollama_result
+    checks["embedding_cache"] = cache_stats
+
+    healthy = all(c.get("status") == "ok" for c in [db_result, ollama_result])
+    status_code = 200 if healthy else 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={"healthy": healthy, "checks": checks},
+    )
+
+
 @app.post("/api/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document_endpoint(file: UploadFile = File(...)):
     """

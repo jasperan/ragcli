@@ -1,12 +1,13 @@
 """Main RAG orchestration for ragcli."""
 
+import hashlib
 import logging
 import time
 from typing import Dict, List, Any, Optional, Generator
 from .document_processor import preprocess_document, chunk_text, get_document_metadata
 from .embedding import generate_embedding, generate_response, batch_generate_embeddings
 from .similarity_search import search_chunks as _search_chunks_internal
-from ..database.vector_ops import insert_document, insert_chunk, insert_chunks_batch, log_query
+from ..database.vector_ops import insert_document, insert_chunk, insert_chunks_batch, log_query, find_document_by_hash
 from ..database.oracle_client import OracleClient
 from ..config.config_manager import load_config
 from ..memory.session import SessionManager
@@ -62,6 +63,26 @@ def upload_document(file_path: str, config: Optional[dict] = None, progress=None
         text, ocr_used = preprocess_document(file_path, config, conn=conn)
         ocr_processed = 'Y' if ocr_used else 'N'
 
+        # Deduplication: check content hash before expensive embedding
+        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        try:
+            existing_id = find_document_by_hash(conn, content_hash)
+        except Exception:
+            existing_id = None  # column may not exist yet; skip dedup
+        if existing_id:
+            logger.info(f"Duplicate detected: {path.name} matches document {existing_id}")
+            if conn: conn.close()
+            client.close()
+            return {
+                'document_id': existing_id,
+                'filename': path.name,
+                'file_format': file_format,
+                'file_size_bytes': file_size,
+                'duplicate': True,
+                'duplicate_of': existing_id,
+                'upload_time_ms': (time.perf_counter() - start_time) * 1000,
+            }
+
         if progress:
             progress.update(process_task, completed=30, description=f"[cyan]Chunking {path.name}...")
 
@@ -73,7 +94,8 @@ def upload_document(file_path: str, config: Optional[dict] = None, progress=None
 
         doc_id = insert_document(
             conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],
-            doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed
+            doc_meta['chunk_count'], doc_meta['total_tokens'], config['vector_index']['dimension'], ocr_processed,
+            content_hash=content_hash,
         )
 
         embedding_model = config['ollama']['embedding_model']

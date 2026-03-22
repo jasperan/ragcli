@@ -15,6 +15,17 @@ def _build_doc_id_binds(document_ids: List[str]) -> Tuple[Dict[str, str], str]:
     placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
     return binds, placeholders
 
+def find_document_by_hash(conn: oracledb.Connection, content_hash: str) -> Optional[str]:
+    """Check if a document with this content hash already exists. Returns doc_id or None."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT document_id FROM DOCUMENTS WHERE content_hash = :h",
+            {"h": content_hash}
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+
 def insert_document(
     conn: oracledb.Connection,
     filename: str,
@@ -25,7 +36,8 @@ def insert_document(
     total_tokens: int,
     embedding_dimension: int = 768,
     ocr_processed: str = 'N',
-    metadata: Dict = None
+    metadata: Dict = None,
+    content_hash: str = None,
 ) -> str:
     """Insert a new document and return its ID."""
     doc_id = generate_id()

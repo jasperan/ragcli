@@ -1,7 +1,9 @@
 """Embedding and LLM generation via Ollama API for ragcli."""
 
+import hashlib
 import requests
 import json
+from collections import OrderedDict
 from typing import List, Dict, Any, Generator, Optional, Callable
 from ragcli.config.config_manager import load_config
 from ..utils.helpers import retry_with_backoff
@@ -22,6 +24,62 @@ def _get_http_session() -> requests.Session:
         _http_session.mount("http://", adapter)
         _http_session.mount("https://", adapter)
     return _http_session
+
+
+# ---------------------------------------------------------------------------
+# Content-addressed embedding cache (LRU, keyed by hash of text + model)
+# ---------------------------------------------------------------------------
+
+class EmbeddingCache:
+    """Thread-safe LRU cache for embeddings, keyed by content hash."""
+
+    def __init__(self, max_size: int = 2048):
+        self._cache: OrderedDict = OrderedDict()
+        self._max_size = max_size
+        self.hits = 0
+        self.misses = 0
+
+    @staticmethod
+    def _key(text: str, model: str) -> str:
+        return hashlib.sha256(f"{model}:{text}".encode("utf-8")).hexdigest()
+
+    def get(self, text: str, model: str) -> Optional[List[float]]:
+        k = self._key(text, model)
+        if k in self._cache:
+            self._cache.move_to_end(k)
+            self.hits += 1
+            return self._cache[k]
+        self.misses += 1
+        return None
+
+    def put(self, text: str, model: str, embedding: List[float]):
+        k = self._key(text, model)
+        self._cache[k] = embedding
+        self._cache.move_to_end(k)
+        if len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
+
+    @property
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return self.hits / total if total else 0.0
+
+    def stats(self) -> dict:
+        return {
+            "size": len(self._cache),
+            "max_size": self._max_size,
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": round(self.hit_rate, 3),
+        }
+
+
+_embedding_cache = EmbeddingCache()
+
+
+def get_embedding_cache() -> EmbeddingCache:
+    """Get the global embedding cache instance."""
+    return _embedding_cache
 
 def generate_embedding(text: str, model: str, config: dict, progress_callback: Optional[Callable] = None, conn=None) -> List[float]:
     """Generate embedding for text using Ollama API or OracleEmbeddings."""
@@ -55,6 +113,13 @@ def generate_embedding(text: str, model: str, config: dict, progress_callback: O
             if config.get('vector_index', {}).get('strict_oracle_embeddings', False):
                 raise
 
+    # Check cache first
+    cached = _embedding_cache.get(text, model)
+    if cached is not None:
+        if progress_callback:
+            progress_callback()
+        return cached
+
     # Fallback / Default: Ollama
     endpoint = config['ollama']['endpoint']
     timeout = config['ollama']['timeout']
@@ -74,6 +139,7 @@ def generate_embedding(text: str, model: str, config: dict, progress_callback: O
 
     try:
         result = retry_with_backoff(_api_call, max_retries=3, base_delay=1.0, max_delay=10.0)
+        _embedding_cache.put(text, model, result)
         if progress_callback:
             progress_callback()
         return result

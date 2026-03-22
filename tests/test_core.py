@@ -12,7 +12,8 @@ from ragcli.core.rag_engine import upload_document, ask_query
 @patch('ragcli.core.rag_engine.get_document_metadata')
 @patch('ragcli.core.rag_engine.chunk_text')
 @patch('ragcli.core.rag_engine.preprocess_document')
-def test_upload_document(mock_preprocess, mock_chunk, mock_meta, mock_insert_doc,
+@patch('ragcli.core.rag_engine.find_document_by_hash', return_value=None)
+def test_upload_document(mock_find_hash, mock_preprocess, mock_chunk, mock_meta, mock_insert_doc,
                          mock_insert_batch, mock_emb, mock_client, tmp_path):
     """Test document upload with mocks."""
     # Create a real temp file
