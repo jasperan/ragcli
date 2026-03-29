@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ragcli — Oracle 26ai RAG System</title>
+
+    <!-- Font: JetBrains Mono from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* ===========================================
+           CSS CUSTOM PROPERTIES (TERMINAL GREEN THEME)
+           =========================================== */
+        :root {
+            /* Colors — Terminal Green preset */
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2333;
+            --bg-code: #0a0e14;
+            --terminal-green: #39d353;
+            --dim-green: #238636;
+            --bright-green: #56d364;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-dim: #484f58;
+            --border-color: #30363d;
+            --accent-glow: rgba(57, 211, 83, 0.15);
+            --accent-glow-strong: rgba(57, 211, 83, 0.3);
+
+            /* Syntax colors */
+            --syn-keyword: #ff7b72;
+            --syn-string: #a5d6ff;
+            --syn-comment: #8b949e;
+            --syn-function: #d2a8ff;
+            --syn-number: #79c0ff;
+            --syn-operator: #ff7b72;
+            --syn-type: #ffa657;
+
+            /* Typography — JetBrains Mono only */
+            --font-mono: 'JetBrains Mono', monospace;
+            --title-size: clamp(1.5rem, 5vw, 4rem);
+            --h2-size: clamp(1.25rem, 3.5vw, 2.5rem);
+            --h3-size: clamp(1rem, 2.5vw, 1.75rem);
+            --body-size: clamp(0.75rem, 1.5vw, 1.125rem);
+            --small-size: clamp(0.65rem, 1vw, 0.875rem);
+            --code-size: clamp(0.6rem, 1.2vw, 0.9rem);
+
+            /* Spacing */
+            --slide-padding: clamp(1rem, 4vw, 4rem);
+            --content-gap: clamp(0.5rem, 2vw, 2rem);
+            --element-gap: clamp(0.25rem, 1vw, 1rem);
+
+            /* Animation */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-normal: 0.6s;
+        }
+
+        /* ===========================================
+           BASE STYLES
+           =========================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===========================================
+           VIEWPORT FITTING: MANDATORY BASE STYLES
+           Include this ENTIRE file in every presentation.
+           These styles ensure slides fit exactly in the viewport.
+           =========================================== */
+
+        /* 1. Lock html/body to viewport */
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        /* 2. Each slide = exact viewport height */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 3. Content container with flex for centering */
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+        }
+
+        /* 4. ALL typography uses clamp() for responsive scaling */
+        /* (defined in :root above) */
+
+        /* 5. Cards/containers use viewport-relative max sizes */
+        .card, .container, .content-box {
+            max-width: min(90vw, 1000px);
+            max-height: min(80vh, 700px);
+        }
+
+        /* 6. Lists auto-scale with viewport */
+        .feature-list, .bullet-list {
+            gap: clamp(0.4rem, 1vh, 1rem);
+        }
+
+        .feature-list li, .bullet-list li {
+            font-size: var(--body-size);
+            line-height: 1.4;
+        }
+
+        /* 7. Grids adapt to available space */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            gap: clamp(0.5rem, 1.5vw, 1rem);
+        }
+
+        /* 8. Images constrained to viewport */
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        /* ===========================================
+           RESPONSIVE BREAKPOINTS
+           =========================================== */
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.75rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.5vw, 1rem);
+                --title-size: clamp(1.25rem, 4.5vw, 2.5rem);
+                --h2-size: clamp(1rem, 3vw, 1.75rem);
+            }
+        }
+
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem);
+                --content-gap: clamp(0.3rem, 1vw, 0.75rem);
+                --title-size: clamp(1.1rem, 4vw, 2rem);
+                --body-size: clamp(0.7rem, 1.2vw, 0.95rem);
+            }
+            .nav-dots, .keyboard-hint, .decorative {
+                display: none;
+            }
+        }
+
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.4rem, 2vw, 1rem);
+                --title-size: clamp(1rem, 3.5vw, 1.5rem);
+                --h2-size: clamp(0.9rem, 2.5vw, 1.25rem);
+                --body-size: clamp(0.65rem, 1vw, 0.85rem);
+            }
+        }
+
+        @media (max-width: 600px) {
+            :root {
+                --title-size: clamp(1.25rem, 7vw, 2.5rem);
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .two-col {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* ===========================================
+           REDUCED MOTION
+           =========================================== */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+            html {
+                scroll-behavior: auto;
+            }
+            .scanlines::before {
+                display: none;
+            }
+            .cursor-blink {
+                animation: none !important;
+            }
+        }
+
+        /* ===========================================
+           TERMINAL GREEN THEME STYLES
+           =========================================== */
+
+        /* Scan lines effect */
+        .scanlines::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.05) 2px,
+                rgba(0, 0, 0, 0.05) 4px
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Blinking cursor */
+        .cursor-blink::after {
+            content: '_';
+            color: var(--terminal-green);
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Terminal prompt */
+        .prompt {
+            color: var(--terminal-green);
+            font-size: var(--body-size);
+        }
+
+        .prompt::before {
+            content: '$ ';
+            color: var(--dim-green);
+        }
+
+        /* Slide backgrounds */
+        .slide {
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Grid background pattern */
+        .grid-bg::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image:
+                linear-gradient(rgba(57, 211, 83, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(57, 211, 83, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: var(--title-size);
+            font-weight: 700;
+            color: var(--terminal-green);
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            font-size: var(--h2-size);
+            font-weight: 600;
+            color: var(--terminal-green);
+            line-height: 1.2;
+            margin-bottom: var(--content-gap);
+        }
+
+        h3 {
+            font-size: var(--h3-size);
+            font-weight: 600;
+            color: var(--bright-green);
+            line-height: 1.3;
+        }
+
+        p {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: clamp(0.5rem, 1.5vw, 1.25rem);
+            font-size: var(--code-size);
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        .code-block .keyword { color: var(--syn-keyword); }
+        .code-block .string { color: var(--syn-string); }
+        .code-block .comment { color: var(--syn-comment); font-style: italic; }
+        .code-block .function { color: var(--syn-function); }
+        .code-block .number { color: var(--syn-number); }
+        .code-block .type { color: var(--syn-type); }
+        .code-block .operator { color: var(--syn-operator); }
+        .code-block .line-num {
+            color: var(--text-dim);
+            user-select: none;
+            display: inline-block;
+            width: 2.5em;
+            text-align: right;
+            margin-right: 1em;
+        }
+
+        /* Feature cards */
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: clamp(0.6rem, 1.5vw, 1.25rem);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--dim-green);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .feature-card .card-icon {
+            font-size: clamp(1rem, 2vw, 1.5rem);
+            margin-bottom: clamp(0.25rem, 0.5vw, 0.5rem);
+        }
+
+        .feature-card h3 {
+            font-size: var(--small-size);
+            margin-bottom: clamp(0.15rem, 0.3vw, 0.3rem);
+        }
+
+        .feature-card p {
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        /* Two column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--content-gap);
+            align-items: start;
+        }
+
+        /* Badge / Tag */
+        .tag {
+            display: inline-block;
+            background: rgba(57, 211, 83, 0.1);
+            color: var(--terminal-green);
+            border: 1px solid var(--dim-green);
+            border-radius: 4px;
+            padding: clamp(0.1rem, 0.3vw, 0.2rem) clamp(0.3rem, 0.6vw, 0.5rem);
+            font-size: var(--small-size);
+            font-weight: 500;
+        }
+
+        /* Stat boxes */
+        .stat-row {
+            display: flex;
+            gap: var(--content-gap);
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: clamp(0.5rem, 1vw, 1rem) clamp(0.75rem, 1.5vw, 1.5rem);
+            text-align: center;
+            flex: 1;
+            min-width: clamp(80px, 15vw, 120px);
+        }
+
+        .stat-box .stat-number {
+            font-size: var(--h2-size);
+            font-weight: 700;
+            color: var(--terminal-green);
+        }
+
+        .stat-box .stat-label {
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            margin-top: clamp(0.1rem, 0.3vw, 0.25rem);
+        }
+
+        /* Flow arrows */
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.3rem, 0.8vw, 0.75rem);
+            margin-bottom: clamp(0.3rem, 0.7vh, 0.6rem);
+        }
+
+        .flow-step .step-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: clamp(0.3rem, 0.6vw, 0.5rem) clamp(0.5rem, 1vw, 0.75rem);
+            font-size: var(--small-size);
+            white-space: nowrap;
+        }
+
+        .flow-step .arrow {
+            color: var(--dim-green);
+            font-size: var(--body-size);
+        }
+
+        /* Table-like rows */
+        .table-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: clamp(0.5rem, 1.5vw, 1.5rem);
+            padding: clamp(0.3rem, 0.5vh, 0.5rem) 0;
+            border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+            font-size: var(--small-size);
+            align-items: baseline;
+        }
+
+        .table-row .label {
+            color: var(--terminal-green);
+            font-weight: 600;
+            min-width: clamp(80px, 12vw, 150px);
+        }
+
+        .table-row .value {
+            color: var(--text-secondary);
+        }
+
+        /* Section number */
+        .section-num {
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            margin-bottom: clamp(0.25rem, 0.5vh, 0.5rem);
+        }
+
+        /* Glow line separator */
+        .glow-line {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--terminal-green), transparent);
+            margin: var(--content-gap) 0;
+            opacity: 0.4;
+        }
+
+        /* Agent cards */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+            gap: clamp(0.4rem, 1vw, 0.75rem);
+        }
+
+        .agent-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: 2px solid var(--terminal-green);
+            border-radius: 6px;
+            padding: clamp(0.5rem, 1vw, 0.75rem);
+        }
+
+        .agent-card h3 {
+            font-size: var(--small-size);
+            margin-bottom: clamp(0.15rem, 0.3vw, 0.25rem);
+        }
+
+        .agent-card p {
+            font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+            color: var(--text-dim);
+        }
+
+        /* TUI view tabs */
+        .tui-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: var(--element-gap);
+        }
+
+        .tui-tab {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            padding: clamp(0.2rem, 0.4vw, 0.35rem) clamp(0.4rem, 0.8vw, 0.75rem);
+            font-size: clamp(0.5rem, 0.85vw, 0.7rem);
+            color: var(--text-dim);
+        }
+
+        .tui-tab.active {
+            background: var(--bg-card);
+            color: var(--terminal-green);
+            border-color: var(--dim-green);
+        }
+
+        .tui-window {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 6px 6px;
+            padding: clamp(0.5rem, 1vw, 0.75rem);
+            font-size: var(--small-size);
+            line-height: 1.5;
+        }
+
+        /* Bullet list with green markers */
+        .green-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.2rem, 0.5vh, 0.4rem);
+        }
+
+        .green-list li {
+            font-size: var(--body-size);
+            color: var(--text-secondary);
+            padding-left: 1.5em;
+            position: relative;
+        }
+
+        .green-list li::before {
+            content: '>';
+            position: absolute;
+            left: 0;
+            color: var(--terminal-green);
+            font-weight: 700;
+        }
+
+        /* === PROGRESS BAR === */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: var(--terminal-green);
+            box-shadow: 0 0 8px var(--accent-glow-strong);
+            z-index: 9999;
+            transition: width 0.3s ease;
+        }
+
+        /* === SLIDE COUNTER === */
+        .slide-counter {
+            position: fixed;
+            top: clamp(0.5rem, 1.5vw, 1rem);
+            right: clamp(0.5rem, 1.5vw, 1rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--text-dim);
+            z-index: 9998;
+            background: rgba(13, 17, 23, 0.8);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* === NAV DOTS === */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.5rem, 1vw, 1rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 9998;
+        }
+
+        .nav-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            padding: 0;
+        }
+
+        .nav-dot.active {
+            background: var(--terminal-green);
+            box-shadow: 0 0 6px var(--accent-glow-strong);
+            transform: scale(1.4);
+        }
+
+        /* ===========================================
+           ANIMATIONS
+           =========================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-50px);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .reveal-scale {
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity var(--duration-normal) var(--ease-out-expo),
+                        transform var(--duration-normal) var(--ease-out-expo);
+        }
+
+        .slide.visible .reveal,
+        .slide.visible .reveal-left,
+        .slide.visible .reveal-scale {
+            opacity: 1;
+            transform: translateY(0) translateX(0) scale(1);
+        }
+
+        .reveal:nth-child(1) { transition-delay: 0.1s; }
+        .reveal:nth-child(2) { transition-delay: 0.2s; }
+        .reveal:nth-child(3) { transition-delay: 0.3s; }
+        .reveal:nth-child(4) { transition-delay: 0.4s; }
+        .reveal:nth-child(5) { transition-delay: 0.5s; }
+        .reveal:nth-child(6) { transition-delay: 0.6s; }
+
+        .reveal-left:nth-child(1) { transition-delay: 0.1s; }
+        .reveal-left:nth-child(2) { transition-delay: 0.2s; }
+        .reveal-left:nth-child(3) { transition-delay: 0.3s; }
+        .reveal-left:nth-child(4) { transition-delay: 0.4s; }
+
+        /* Typing animation */
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        .type-line {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid var(--terminal-green);
+            animation: typing 1.5s steps(40) forwards, blink 1s step-end infinite;
+            width: 0;
+        }
+
+        .slide.visible .type-line {
+            animation: typing 1.5s steps(40) forwards;
+        }
+
+        /* Glow pulse */
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 5px var(--accent-glow); }
+            50% { box-shadow: 0 0 20px var(--accent-glow-strong); }
+        }
+
+        .glow-pulse {
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+
+        /* Title slide special styles */
+        .title-slide .slide-content {
+            align-items: center;
+            text-align: center;
+        }
+
+        .title-slide h1 {
+            font-size: clamp(2rem, 7vw, 5.5rem);
+            text-shadow: 0 0 40px var(--accent-glow-strong);
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: var(--dim-green);
+            color: var(--bg-primary);
+            padding: clamp(0.15rem, 0.3vw, 0.25rem) clamp(0.4rem, 0.8vw, 0.75rem);
+            border-radius: 4px;
+            font-size: var(--small-size);
+            font-weight: 600;
+            margin-top: var(--element-gap);
+        }
+
+        /* Closing slide */
+        .closing-slide .slide-content {
+            align-items: center;
+            text-align: center;
+        }
+
+        .link-row {
+            display: flex;
+            gap: var(--content-gap);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .link-item {
+            color: var(--terminal-green);
+            font-size: var(--small-size);
+            text-decoration: none;
+            border: 1px solid var(--dim-green);
+            padding: clamp(0.2rem, 0.4vw, 0.35rem) clamp(0.5rem, 1vw, 0.75rem);
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+
+        .link-item:hover {
+            background: var(--accent-glow);
+        }
+    </style>
+</head>
+<body>
+    <!-- === PROGRESS BAR === -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- === SLIDE COUNTER === -->
+    <div class="slide-counter" id="slideCounter">01 / 22</div>
+
+    <!-- === NAV DOTS === -->
+    <nav class="nav-dots" id="navDots" aria-label="Slide navigation"></nav>
+
+    <!-- ===========================================
+         SLIDE 1: TITLE
+         =========================================== -->
+    <section class="slide title-slide scanlines grid-bg" aria-label="Title">
+        <div class="slide-content">
+            <div class="section-num reveal">// production-ready RAG system</div>
+            <h1 class="reveal cursor-blink">ragcli</h1>
+            <p class="reveal" style="color: var(--text-secondary); margin-top: var(--element-gap);">
+                Oracle Database 26ai + Ollama local inference
+            </p>
+            <div class="reveal" style="margin-top: var(--content-gap);">
+                <span class="tag">CLI</span>
+                <span class="tag">API</span>
+                <span class="tag">React UI</span>
+                <span class="tag">Rust TUI</span>
+            </div>
+            <div class="version-badge reveal">v2.0.1</div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 2: THE PROBLEM
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="The Problem">
+        <div class="slide-content">
+            <div class="section-num reveal">01 // the problem</div>
+            <h2 class="reveal">RAG shouldn't require 12 SaaS subscriptions</h2>
+            <div class="glow-line reveal"></div>
+            <ul class="green-list reveal">
+                <li>Most RAG tools lock you into cloud vector DBs with per-query pricing</li>
+                <li>Your documents leave your network for embedding and inference</li>
+                <li>No single tool gives you search, agents, graphs, eval, and sync</li>
+                <li>Existing CLIs are proof-of-concept toys, not production systems</li>
+            </ul>
+            <p class="reveal" style="margin-top: var(--content-gap); color: var(--terminal-green); font-weight: 600;">
+                ragcli runs 100% local. Your data never leaves your machine.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 3: WHAT IS RAGCLI
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="What is ragcli">
+        <div class="slide-content">
+            <div class="section-num reveal">02 // overview</div>
+            <h2 class="reveal">What ragcli actually is</h2>
+            <div class="glow-line reveal"></div>
+            <p class="reveal">
+                A production-ready RAG system built on Oracle Database 26ai for vector search and Ollama for local LLM inference. Ships with multi-agent reasoning, knowledge graphs, hybrid search, feedback loops, session memory, an evaluation suite, and live document sync.
+            </p>
+            <div class="code-block reveal" style="margin-top: var(--content-gap);">
+                <span class="comment"># one line install</span><br>
+                <span class="keyword">pip</span> install oracle-ragcli
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 4: BY THE NUMBERS
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Stats">
+        <div class="slide-content">
+            <div class="section-num reveal">03 // scope</div>
+            <h2 class="reveal">By the numbers</h2>
+            <div class="glow-line reveal"></div>
+            <div class="stat-row reveal">
+                <div class="stat-box">
+                    <div class="stat-number">30</div>
+                    <div class="stat-label">API Endpoints</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">17</div>
+                    <div class="stat-label">DB Tables</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">9</div>
+                    <div class="stat-label">CLI Commands</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">222</div>
+                    <div class="stat-label">Passing Tests</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">4</div>
+                    <div class="stat-label">AI Agents</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 5: ARCHITECTURE OVERVIEW
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Architecture">
+        <div class="slide-content">
+            <div class="section-num reveal">04 // architecture</div>
+            <h2 class="reveal">System architecture</h2>
+            <div class="glow-line reveal"></div>
+            <div class="code-block reveal" style="line-height: 1.5;">
+<span class="type">React Frontend</span> <span class="comment">(:5173)</span>
+  <span class="operator">|</span> Google-style search, drag-drop upload
+  <span class="operator">v</span>
+<span class="type">FastAPI Backend</span> <span class="comment">(:8000)</span>
+  <span class="operator">|</span> 30 REST endpoints, SSE streaming
+  <span class="operator">v</span>
+<span class="type">Oracle DB 26ai</span> --- <span class="type">Ollama</span> --- <span class="type">Embeddings</span>
+  Vector Search     Chat LLM    nomic-embed-text
+  <span class="operator">|</span>
+<span class="type">Rust TUI</span> <span class="comment">(ratatui)</span>
+  <span class="operator">|</span> 6 interactive dashboard views
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 6: CORE FEATURES (1)
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Core Features 1">
+        <div class="slide-content">
+            <div class="section-num reveal">05 // features</div>
+            <h2 class="reveal">v2.0 feature set</h2>
+            <div class="glow-line reveal"></div>
+            <div class="grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));">
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f9e0;</div>
+                    <h3>Multi-Agent CoT</h3>
+                    <p>4-agent reasoning pipeline with full trace storage</p>
+                </div>
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f578;&#xfe0f;</div>
+                    <h3>Knowledge Graph</h3>
+                    <p>LLM entity extraction, Oracle graph store, multi-hop traversal</p>
+                </div>
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f50d;</div>
+                    <h3>Hybrid Search</h3>
+                    <p>BM25 + Vector + Graph fused with Reciprocal Rank Fusion</p>
+                </div>
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f4ac;</div>
+                    <h3>Session Memory</h3>
+                    <p>Multi-turn conversations, query rewriting, summarization</p>
+                </div>
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f4ca;</div>
+                    <h3>Eval Suite</h3>
+                    <p>Synthetic Q&A, 4 LLM-judged metrics, run comparisons</p>
+                </div>
+                <div class="feature-card">
+                    <div class="card-icon">&#x1f504;</div>
+                    <h3>Live Sync</h3>
+                    <p>Watchdog, git polling, URL polling, diff-chunking</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 7: CORE FEATURES (2)
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Core Features 2">
+        <div class="slide-content">
+            <div class="section-num reveal">06 // features</div>
+            <h2 class="reveal">Feedback loops &amp; self-improvement</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">Feedback Collector</h3>
+                    <ul class="green-list">
+                        <li>Answer-level thumbs up/down</li>
+                        <li>Chunk-level relevance ratings</li>
+                        <li>Wilson score quality tracking</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">Feedback Adjuster</h3>
+                    <ul class="green-list">
+                        <li>Graph edge weight tuning</li>
+                        <li>Search signal weight adjustment</li>
+                        <li>Auto-recalibration at threshold</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--content-gap); color: var(--text-dim);">
+                The system gets smarter the more you use it. No retraining required.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 8: HYBRID SEARCH DEEP DIVE
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Hybrid Search">
+        <div class="slide-content">
+            <div class="section-num reveal">07 // search</div>
+            <h2 class="reveal">Hybrid search pipeline</h2>
+            <div class="glow-line reveal"></div>
+            <div class="flow-step reveal">
+                <div class="step-box" style="border-color: var(--syn-keyword);">Query</div>
+                <div class="arrow">-></div>
+                <div class="step-box">Search Router</div>
+                <div class="arrow">-></div>
+                <div class="step-box" style="color: var(--syn-string);">3 signals</div>
+            </div>
+            <div class="two-col reveal" style="margin-top: var(--element-gap);">
+                <div>
+                    <div class="table-row">
+                        <span class="label">BM25</span>
+                        <span class="value">Keyword/lexical matching</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Vector</span>
+                        <span class="value">Oracle AI Vector Search (cosine)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Graph</span>
+                        <span class="value">Knowledge graph traversal</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="code-block" style="font-size: var(--small-size);">
+                        <span class="comment"># Reciprocal Rank Fusion</span><br>
+                        <span class="function">RRF</span>(d) = <span class="keyword">sum</span>(<br>
+                        &nbsp;&nbsp;1 / (k + rank_i(d))<br>
+                        ) <span class="comment"># k=60 default</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 9: MULTI-AGENT COT
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Multi-Agent">
+        <div class="slide-content">
+            <div class="section-num reveal">08 // agents</div>
+            <h2 class="reveal">Multi-agent Chain of Thought</h2>
+            <div class="glow-line reveal"></div>
+            <div class="agent-grid reveal">
+                <div class="agent-card">
+                    <h3>Planner</h3>
+                    <p>Decomposes the query into subtasks and builds an execution plan</p>
+                </div>
+                <div class="agent-card">
+                    <h3>Researcher</h3>
+                    <p>Retrieves relevant chunks from the vector store and knowledge graph</p>
+                </div>
+                <div class="agent-card">
+                    <h3>Reasoner</h3>
+                    <p>Analyzes retrieved context, identifies connections, resolves conflicts</p>
+                </div>
+                <div class="agent-card">
+                    <h3>Synthesizer</h3>
+                    <p>Produces the final answer with citations and confidence scores</p>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--element-gap); color: var(--text-dim); font-size: var(--small-size);">
+                Full trace stored in Oracle DB. Inspect any step via CLI, API, or TUI.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 10: KNOWLEDGE GRAPH
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Knowledge Graph">
+        <div class="slide-content">
+            <div class="section-num reveal">09 // knowledge graph</div>
+            <h2 class="reveal">LLM-powered knowledge graph</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <ul class="green-list">
+                        <li>Entity/relationship extraction from every chunk</li>
+                        <li>Max 10 entities per chunk (configurable)</li>
+                        <li>Deduplication at 0.9 similarity threshold</li>
+                        <li>Multi-hop traversal (default: 2 hops)</li>
+                        <li>Stored in Oracle graph tables</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="code-block" style="font-size: var(--small-size);">
+                        <span class="comment"># config.yaml</span><br>
+                        <span class="type">knowledge_graph</span>:<br>
+                        &nbsp;&nbsp;<span class="string">enabled</span>: <span class="keyword">true</span><br>
+                        &nbsp;&nbsp;<span class="string">max_entities</span>: <span class="number">10</span><br>
+                        &nbsp;&nbsp;<span class="string">dedup_threshold</span>: <span class="number">0.9</span><br>
+                        &nbsp;&nbsp;<span class="string">max_hops</span>: <span class="number">2</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 11: ORACLE 26ai INTEGRATION
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Oracle 26ai">
+        <div class="slide-content">
+            <div class="section-num reveal">10 // oracle 26ai</div>
+            <h2 class="reveal">Oracle AI Vector Search</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">langchain-oracledb</h3>
+                    <ul class="green-list">
+                        <li>OracleDocLoader: DB-side doc loading</li>
+                        <li>OracleTextSplitter: DB-side chunking</li>
+                        <li>OracleEmbeddings: In-DB ONNX models</li>
+                        <li>OracleSummary: DB-side summarization</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">Vector capabilities</h3>
+                    <ul class="green-list">
+                        <li>HNSW/IVF auto-indexing</li>
+                        <li>768-dim embedding storage</li>
+                        <li>Cosine similarity search</li>
+                        <li>Metadata filtering</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 12: DOCUMENT PROCESSING
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Document Processing">
+        <div class="slide-content">
+            <div class="section-num reveal">11 // documents</div>
+            <h2 class="reveal">Document processing pipeline</h2>
+            <div class="glow-line reveal"></div>
+            <div class="flow-step reveal">
+                <div class="step-box">Upload</div>
+                <div class="arrow">-></div>
+                <div class="step-box">Validate</div>
+                <div class="arrow">-></div>
+                <div class="step-box">Chunk</div>
+                <div class="arrow">-></div>
+                <div class="step-box">Embed</div>
+                <div class="arrow">-></div>
+                <div class="step-box" style="border-color: var(--terminal-green);">Oracle DB</div>
+            </div>
+            <div class="two-col reveal" style="margin-top: var(--content-gap);">
+                <div>
+                    <div class="table-row">
+                        <span class="label">Formats</span>
+                        <span class="value">PDF, Markdown, Text</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Chunk size</span>
+                        <span class="value">1000 tokens, 10% overlap</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Max size</span>
+                        <span class="value">100 MB per document</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="table-row">
+                        <span class="label">Embeddings</span>
+                        <span class="value">nomic-embed-text (Ollama)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Alt embed</span>
+                        <span class="value">In-DB ONNX (Oracle)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">OCR</span>
+                        <span class="value">Built-in PDF extraction</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 13: EVALUATION SUITE
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Eval Suite">
+        <div class="slide-content">
+            <div class="section-num reveal">12 // evaluation</div>
+            <h2 class="reveal">Built-in evaluation suite</h2>
+            <div class="glow-line reveal"></div>
+            <div class="grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));">
+                <div class="feature-card">
+                    <h3 style="color: var(--syn-keyword);">Faithfulness</h3>
+                    <p>Is the answer grounded in retrieved context?</p>
+                </div>
+                <div class="feature-card">
+                    <h3 style="color: var(--syn-string);">Relevance</h3>
+                    <p>Does the answer address the original question?</p>
+                </div>
+                <div class="feature-card">
+                    <h3 style="color: var(--syn-function);">Precision</h3>
+                    <p>Are retrieved chunks actually relevant?</p>
+                </div>
+                <div class="feature-card">
+                    <h3 style="color: var(--syn-type);">Recall</h3>
+                    <p>Were all relevant chunks retrieved?</p>
+                </div>
+            </div>
+            <div class="code-block reveal" style="margin-top: var(--content-gap);">
+                <span class="comment"># Generate synthetic Q&A and evaluate</span><br>
+                <span class="keyword">$</span> ragcli eval synthetic<br>
+                <span class="keyword">$</span> ragcli eval report
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 14: LIVE SYNC
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Live Sync">
+        <div class="slide-content">
+            <div class="section-num reveal">13 // sync</div>
+            <h2 class="reveal">Live document sync</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">3 sync modes</h3>
+                    <ul class="green-list">
+                        <li>Watchdog: filesystem monitoring</li>
+                        <li>Git polling: track repo changes</li>
+                        <li>URL polling: fetch remote docs</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="code-block" style="font-size: var(--small-size);">
+                        <span class="comment"># Watch a directory</span><br>
+                        <span class="keyword">$</span> ragcli sync add /docs \<br>
+                        &nbsp;&nbsp;--pattern <span class="string">"*.md"</span><br><br>
+                        <span class="comment"># Watch a git repo</span><br>
+                        <span class="keyword">$</span> ragcli sync add ~/project \<br>
+                        &nbsp;&nbsp;--type git
+                    </div>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--element-gap); color: var(--text-dim); font-size: var(--small-size);">
+                Diff-chunking: only re-embeds changed sections, not the entire document.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 15: TECH STACK
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Tech Stack">
+        <div class="slide-content">
+            <div class="section-num reveal">14 // stack</div>
+            <h2 class="reveal">Tech stack</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <div class="table-row">
+                        <span class="label">Backend</span>
+                        <span class="value">FastAPI (Python 3.9+)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Frontend</span>
+                        <span class="value">React + Vite + TailwindCSS</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Terminal</span>
+                        <span class="value">Rust (ratatui) TUI</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Database</span>
+                        <span class="value">Oracle Database 26ai Free</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="table-row">
+                        <span class="label">LLM</span>
+                        <span class="value">Ollama (local inference)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Embeddings</span>
+                        <span class="value">nomic-embed-text</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Deployment</span>
+                        <span class="value">Docker Compose / PyPI</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Tests</span>
+                        <span class="value">pytest (222 passing)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 16: CLI INTERFACE
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="CLI Interface">
+        <div class="slide-content">
+            <div class="section-num reveal">15 // cli</div>
+            <h2 class="reveal">Interactive CLI</h2>
+            <div class="glow-line reveal"></div>
+            <div class="code-block reveal" style="color: var(--text-secondary);">
+<span style="color: var(--terminal-green);">+==================================+</span>
+<span style="color: var(--terminal-green);">|</span>       RAGCLI INTERFACE           <span style="color: var(--terminal-green);">|</span>
+<span style="color: var(--terminal-green);">|</span>  Oracle DB 26ai RAG v2.0.1      <span style="color: var(--terminal-green);">|</span>
+<span style="color: var(--terminal-green);">+==================================+</span>
+
+Select Objective:
+ <span class="number">[1]</span>  <span class="type">Ingest</span>: Document Upload
+ <span class="number">[2]</span>  <span class="type">Inquiry</span>: Contextual Ask
+ <span class="number">[3]</span>  <span class="type">Knowledge</span>: Manage Assets
+ <span class="number">[4]</span>  <span class="type">Insight</span>: Chain Visualization
+ <span class="number">[5]</span>  <span class="type">Authority</span>: DB Orchestration
+ <span class="number">[6]</span>  <span class="type">Health</span>: System Status
+ <span class="number">[7]</span>  <span class="type">Audit</span>: Integration Tests
+ <span class="number">[0]</span>  Terminate Session
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 17: RUST TUI
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Rust TUI">
+        <div class="slide-content">
+            <div class="section-num reveal">16 // terminal dashboard</div>
+            <h2 class="reveal">Rust TUI (ratatui)</h2>
+            <div class="glow-line reveal"></div>
+            <div class="tui-tabs reveal">
+                <div class="tui-tab active">1:Query</div>
+                <div class="tui-tab">2:Heatmap</div>
+                <div class="tui-tab">3:Graph</div>
+                <div class="tui-tab">4:Agents</div>
+                <div class="tui-tab">5:Docs</div>
+                <div class="tui-tab">6:System</div>
+            </div>
+            <div class="tui-window reveal">
+                <div class="table-row">
+                    <span class="label">Query</span>
+                    <span class="value">Streaming RAG with source chunks + similarity scores</span>
+                </div>
+                <div class="table-row">
+                    <span class="label">Heatmap</span>
+                    <span class="value">768-dim embedding visualization with contribution analysis</span>
+                </div>
+                <div class="table-row">
+                    <span class="label">Graph</span>
+                    <span class="value">Interactive knowledge graph with force-directed layout</span>
+                </div>
+                <div class="table-row">
+                    <span class="label">Agents</span>
+                    <span class="value">4-column CoT pipeline trace</span>
+                </div>
+                <div class="table-row">
+                    <span class="label">Docs</span>
+                    <span class="value">Document manager with chunk preview + metadata</span>
+                </div>
+                <div class="table-row">
+                    <span class="label">System</span>
+                    <span class="value">Health, latency sparkline, CPU/RAM gauges</span>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--element-gap); font-size: var(--small-size); color: var(--text-dim);">
+                Spawns FastAPI server automatically. Keybindings: 1-6 switch views, / command palette, ? help
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 18: API ENDPOINTS
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="API">
+        <div class="slide-content">
+            <div class="section-num reveal">17 // api</div>
+            <h2 class="reveal">FastAPI backend (30 endpoints)</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <div class="table-row">
+                        <span class="label">POST /upload</span>
+                        <span class="value">Multipart doc upload</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">POST /query</span>
+                        <span class="value">RAG query (SSE streaming)</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">GET /models</span>
+                        <span class="value">List Ollama models</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">POST /feedback</span>
+                        <span class="value">Submit ratings</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">GET /sessions</span>
+                        <span class="value">Session history</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="table-row">
+                        <span class="label">POST /eval/run</span>
+                        <span class="value">Trigger eval run</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">POST /sync</span>
+                        <span class="value">Add sync source</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">GET /health</span>
+                        <span class="value">Health probe</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">GET /stats</span>
+                        <span class="value">Latency + DB stats</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">GET /graph</span>
+                        <span class="value">Knowledge graph data</span>
+                    </div>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--element-gap); font-size: var(--small-size); color: var(--text-dim);">
+                Swagger docs at /docs. CORS configurable. Docker or standalone.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 19: REACT FRONTEND
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Frontend">
+        <div class="slide-content">
+            <div class="section-num reveal">18 // frontend</div>
+            <h2 class="reveal">React web interface</h2>
+            <div class="glow-line reveal"></div>
+            <div class="grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));">
+                <div class="feature-card">
+                    <h3>Google-style search</h3>
+                    <p>Clean elevated search bar with real-time feedback</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Drag-and-drop</h3>
+                    <p>Document ingestion with visual file previews</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Vector heatmap</h3>
+                    <p>Real-time query vs result embedding visualization</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Framer Motion</h3>
+                    <p>Fluid animations and transitions throughout</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Material 3</h3>
+                    <p>Rounded corners, whitespace, Google Sans</p>
+                </div>
+                <div class="feature-card">
+                    <h3>SSE streaming</h3>
+                    <p>Token-by-token response rendering</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 20: QUICK START
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Quick Start">
+        <div class="slide-content">
+            <div class="section-num reveal">19 // getting started</div>
+            <h2 class="reveal">Quick start</h2>
+            <div class="glow-line reveal"></div>
+            <div class="code-block reveal">
+<span class="comment"># Install</span>
+<span class="keyword">$</span> pip install oracle-ragcli
+
+<span class="comment"># Or clone and install from source</span>
+<span class="keyword">$</span> git clone https://github.com/jasperan/ragcli.git
+<span class="keyword">$</span> cd ragcli && pip install -r requirements.txt
+
+<span class="comment"># Configure</span>
+<span class="keyword">$</span> cp config.yaml.example config.yaml
+
+<span class="comment"># Initialize database</span>
+<span class="keyword">$</span> python ragcli.py db init
+
+<span class="comment"># Launch</span>
+<span class="keyword">$</span> python ragcli.py
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 21: DEPLOYMENT
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Deployment">
+        <div class="slide-content">
+            <div class="section-num reveal">20 // deployment</div>
+            <h2 class="reveal">Three deployment modes</h2>
+            <div class="glow-line reveal"></div>
+            <div class="grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));">
+                <div class="feature-card glow-pulse">
+                    <h3>PyPI</h3>
+                    <div class="code-block" style="margin-top: var(--element-gap); font-size: clamp(0.5rem, 0.9vw, 0.75rem);">
+                        pip install oracle-ragcli
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <h3>Docker Compose</h3>
+                    <div class="code-block" style="margin-top: var(--element-gap); font-size: clamp(0.5rem, 0.9vw, 0.75rem);">
+                        docker-compose up -d
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <h3>From source</h3>
+                    <div class="code-block" style="margin-top: var(--element-gap); font-size: clamp(0.5rem, 0.9vw, 0.75rem);">
+                        python ragcli.py api
+                    </div>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--content-gap); font-size: var(--small-size); color: var(--text-dim);">
+                Docker Compose bundles ragcli API + Ollama. One-command install script also available.
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 22: CONFIGURATION
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Configuration">
+        <div class="slide-content">
+            <div class="section-num reveal">21 // config</div>
+            <h2 class="reveal">Configuration (config.yaml)</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div class="code-block" style="font-size: var(--small-size);">
+<span class="type">oracle</span>:
+  <span class="string">dsn</span>: <span class="string">"localhost:1521/FREEPDB1"</span>
+  <span class="string">username</span>: <span class="string">"rag_user"</span>
+  <span class="string">password</span>: <span class="string">"${ORACLE_PASSWORD}"</span>
+
+<span class="type">ollama</span>:
+  <span class="string">endpoint</span>: <span class="string">"http://localhost:11434"</span>
+  <span class="string">chat_model</span>: <span class="string">"qwen3.5:35b-a3b"</span>
+
+<span class="type">search</span>:
+  <span class="string">strategy</span>: <span class="string">"hybrid"</span>
+  <span class="string">rrf_k</span>: <span class="number">60</span>
+                </div>
+                <div>
+                    <div class="table-row">
+                        <span class="label">Env vars</span>
+                        <span class="value">${VAR} syntax for secrets</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Chunk size</span>
+                        <span class="value">1000 tokens default</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Top-k</span>
+                        <span class="value">5 results default</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Session TTL</span>
+                        <span class="value">30 min timeout</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Sync poll</span>
+                        <span class="value">300s interval</span>
+                    </div>
+                    <div class="table-row">
+                        <span class="label">Log rotation</span>
+                        <span class="value">File + console</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 23: DATABASE SCHEMA
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Schema">
+        <div class="slide-content">
+            <div class="section-num reveal">22 // schema</div>
+            <h2 class="reveal">17 Oracle tables</h2>
+            <div class="glow-line reveal"></div>
+            <div class="two-col reveal">
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">Core</h3>
+                    <ul class="green-list" style="font-size: var(--small-size);">
+                        <li>DOCUMENTS: metadata, format, size</li>
+                        <li>CHUNKS: text + VECTOR column</li>
+                        <li>QUERIES: user queries + results</li>
+                        <li>SESSIONS: multi-turn conversations</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: var(--element-gap);">Extended</h3>
+                    <ul class="green-list" style="font-size: var(--small-size);">
+                        <li>KG_ENTITIES / KG_RELATIONS</li>
+                        <li>AGENT_TRACES: CoT pipeline logs</li>
+                        <li>FEEDBACK: user ratings</li>
+                        <li>EVAL_RUNS / EVAL_RESULTS</li>
+                        <li>SYNC_SOURCES / SYNC_EVENTS</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: var(--element-gap); font-size: var(--small-size); color: var(--text-dim);">
+                HNSW index on embeddings. JSON metadata columns. All managed by "ragcli db init".
+            </p>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 24: ROADMAP
+         =========================================== -->
+    <section class="slide scanlines grid-bg" aria-label="Roadmap">
+        <div class="slide-content">
+            <div class="section-num reveal">23 // roadmap</div>
+            <h2 class="reveal">What's next</h2>
+            <div class="glow-line reveal"></div>
+            <div class="grid reveal" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));">
+                <div class="feature-card">
+                    <h3>Multi-modal RAG</h3>
+                    <p>Image and table extraction from PDFs alongside text</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Reranking</h3>
+                    <p>Cross-encoder reranker after initial retrieval for precision</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Plugin system</h3>
+                    <p>Custom processors, search backends, and agent extensions</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Collaborative</h3>
+                    <p>Multi-user access control and shared knowledge bases</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+         SLIDE 25: CLOSING
+         =========================================== -->
+    <section class="slide closing-slide scanlines grid-bg" aria-label="Closing">
+        <div class="slide-content">
+            <div class="section-num reveal">// fin</div>
+            <h1 class="reveal cursor-blink" style="font-size: var(--h2-size);">$ ragcli</h1>
+            <p class="reveal" style="margin-top: var(--element-gap); color: var(--text-secondary);">
+                Production-ready RAG. 100% local. Oracle 26ai + Ollama.
+            </p>
+            <div class="glow-line reveal"></div>
+            <div class="link-row reveal" style="margin-top: var(--content-gap);">
+                <a class="link-item" href="https://github.com/jasperan/ragcli" target="_blank">GitHub</a>
+                <a class="link-item" href="https://pypi.org/project/oracle-ragcli/" target="_blank">PyPI</a>
+                <a class="link-item" href="https://linkedin.com/in/jasperan" target="_blank">LinkedIn</a>
+            </div>
+            <div class="code-block reveal" style="margin-top: var(--content-gap); display: inline-block;">
+                <span class="keyword">$</span> pip install oracle-ragcli
+            </div>
+        </div>
+    </section>
+
+    <!-- ===========================================
+       SLIDE PRESENTATION CONTROLLER (JavaScript)
+       =========================================== -->
+    <script>
+        class SlidePresentation {
+            constructor() {
+                this.slides = document.querySelectorAll('.slide');
+                this.currentSlide = 0;
+                this.totalSlides = this.slides.length;
+                this.isScrolling = false;
+
+                this.setupIntersectionObserver();
+                this.setupKeyboardNav();
+                this.setupTouchNav();
+                this.setupProgressBar();
+                this.setupNavDots();
+                this.setupSlideCounter();
+            }
+
+            /* --- Intersection Observer --- */
+            setupIntersectionObserver() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('visible');
+                            const index = Array.from(this.slides).indexOf(entry.target);
+                            if (index !== -1) {
+                                this.currentSlide = index;
+                                this.updateProgressBar();
+                                this.updateNavDots();
+                                this.updateSlideCounter();
+                            }
+                        }
+                    });
+                }, {
+                    threshold: 0.5
+                });
+
+                this.slides.forEach(slide => observer.observe(slide));
+            }
+
+            /* --- Keyboard Navigation --- */
+            setupKeyboardNav() {
+                document.addEventListener('keydown', (e) => {
+                    switch(e.key) {
+                        case 'ArrowDown':
+                        case 'ArrowRight':
+                        case ' ':
+                        case 'PageDown':
+                            e.preventDefault();
+                            this.goToSlide(this.currentSlide + 1);
+                            break;
+                        case 'ArrowUp':
+                        case 'ArrowLeft':
+                        case 'PageUp':
+                            e.preventDefault();
+                            this.goToSlide(this.currentSlide - 1);
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            this.goToSlide(0);
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            this.goToSlide(this.totalSlides - 1);
+                            break;
+                    }
+                });
+            }
+
+            /* --- Touch/Swipe Navigation --- */
+            setupTouchNav() {
+                let touchStartY = 0;
+                let touchEndY = 0;
+
+                document.addEventListener('touchstart', (e) => {
+                    touchStartY = e.changedTouches[0].screenY;
+                }, { passive: true });
+
+                document.addEventListener('touchend', (e) => {
+                    touchEndY = e.changedTouches[0].screenY;
+                    const diff = touchStartY - touchEndY;
+                    if (Math.abs(diff) > 50) {
+                        if (diff > 0) {
+                            this.goToSlide(this.currentSlide + 1);
+                        } else {
+                            this.goToSlide(this.currentSlide - 1);
+                        }
+                    }
+                }, { passive: true });
+            }
+
+            /* --- Progress Bar --- */
+            setupProgressBar() {
+                this.progressBar = document.getElementById('progressBar');
+                this.updateProgressBar();
+            }
+
+            updateProgressBar() {
+                if (this.progressBar) {
+                    const progress = ((this.currentSlide + 1) / this.totalSlides) * 100;
+                    this.progressBar.style.width = progress + '%';
+                }
+            }
+
+            /* --- Nav Dots --- */
+            setupNavDots() {
+                const container = document.getElementById('navDots');
+                if (!container) return;
+
+                this.slides.forEach((_, i) => {
+                    const dot = document.createElement('button');
+                    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+                    dot.addEventListener('click', () => this.goToSlide(i));
+                    container.appendChild(dot);
+                });
+
+                this.navDots = container.querySelectorAll('.nav-dot');
+            }
+
+            updateNavDots() {
+                if (!this.navDots) return;
+                this.navDots.forEach((dot, i) => {
+                    dot.classList.toggle('active', i === this.currentSlide);
+                });
+            }
+
+            /* --- Slide Counter --- */
+            setupSlideCounter() {
+                this.counterEl = document.getElementById('slideCounter');
+                this.updateSlideCounter();
+            }
+
+            updateSlideCounter() {
+                if (this.counterEl) {
+                    const current = String(this.currentSlide + 1).padStart(2, '0');
+                    const total = String(this.totalSlides).padStart(2, '0');
+                    this.counterEl.textContent = current + ' / ' + total;
+                }
+            }
+
+            /* --- Navigate to Slide --- */
+            goToSlide(index) {
+                if (index < 0 || index >= this.totalSlides) return;
+                this.slides[index].scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        /* Initialize on DOM ready */
+        document.addEventListener('DOMContentLoaded', () => {
+            new SlidePresentation();
+        });
+    </script>
+</body>
+</html>
