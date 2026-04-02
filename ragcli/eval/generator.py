@@ -107,7 +107,7 @@ Text:
         with self.conn.cursor() as cursor:
             cursor.execute(sql, {"doc_id": document_id, "limit": limit})
             rows = cursor.fetchall()
-        return [(row[0], row[1]) for row in rows]
+        return [(row[0], row[1].read() if hasattr(row[1], 'read') else row[1]) for row in rows]
 
     def store_qa_pair(
         self,
