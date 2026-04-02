@@ -59,6 +59,7 @@ CREATE TABLE QUERIES (
     embedding_time_ms   NUMBER,
     search_time_ms      NUMBER,
     generation_time_ms  NUMBER,
+    total_time_ms       NUMBER,
     retrieved_chunks    VARCHAR2(4000),  -- JSON: chunk IDs and scores
     status              VARCHAR2(20),    -- SUCCESS, FAILED, PARTIAL
     error_message       VARCHAR2(500),

@@ -137,8 +137,8 @@ class FeedbackCollector:
             SELECT
                 COUNT(*) AS total_feedback,
                 NVL(AVG(rating), 0) AS avg_rating,
-                SUM(CASE WHEN target_type = 'chunk' THEN 1 ELSE 0 END) AS total_chunk_feedback,
-                SUM(CASE WHEN target_type = 'answer' THEN 1 ELSE 0 END) AS total_answer_feedback
+                NVL(SUM(CASE WHEN target_type = 'chunk' THEN 1 ELSE 0 END), 0) AS total_chunk_feedback,
+                NVL(SUM(CASE WHEN target_type = 'answer' THEN 1 ELSE 0 END), 0) AS total_answer_feedback
             FROM FEEDBACK
         """
         with self.conn.cursor() as cursor:

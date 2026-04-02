@@ -173,6 +173,9 @@ def _extract_knowledge_graph(conn, doc_id: str, config: dict):
             doc_chunks = cursor.fetchall()
 
         for chunk_id, chunk_content in doc_chunks:
+            # Oracle CLOB columns return LOB objects; convert to str
+            if hasattr(chunk_content, 'read'):
+                chunk_content = chunk_content.read()
             extraction = extractor.extract_from_text(chunk_content)
             if extraction:
                 for entity in extraction.get('entities', []):

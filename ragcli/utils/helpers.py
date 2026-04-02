@@ -87,8 +87,12 @@ def parse_env_vars(data: Any, env_dict: Optional[Dict[str, str]] = None) -> Any:
         env_dict = os.environ
 
     def replace_var(match):
-        var_name = match.group(1)
-        return env_dict.get(var_name, match.group(0))  # Return original if not found
+        var_expr = match.group(1)
+        # Handle ${VAR:-default} syntax
+        if ':-' in var_expr:
+            var_name, default = var_expr.split(':-', 1)
+            return env_dict.get(var_name, default)
+        return env_dict.get(var_expr, match.group(0))  # Return original if not found
 
     if isinstance(data, str):
         return re.sub(r'\$\{([^}]+)\}', replace_var, data)
