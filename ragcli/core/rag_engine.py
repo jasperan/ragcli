@@ -3,20 +3,18 @@
 import hashlib
 import logging
 import time
-from typing import Dict, List, Any, Optional, Generator
+from typing import Dict, List, Any, Optional
 from .document_processor import preprocess_document, chunk_text, get_document_metadata
-from .embedding import generate_embedding, generate_response, batch_generate_embeddings
+from .embedding import generate_embedding, generate_response
 from .similarity_search import search_chunks as _search_chunks_internal
-from ..database.vector_ops import insert_document, insert_chunk, insert_chunks_batch, log_query, find_document_by_hash
+from ..database.vector_ops import insert_document, insert_chunks_batch, log_query, find_document_by_hash
 from ..database.oracle_client import OracleClient
 from ..config.config_manager import load_config
 from ..memory.session import SessionManager
 from ..memory.rewriter import QueryRewriter
 from ..memory.context import ContextManager
-from ..agents.orchestrator import AgentOrchestrator
 from ..knowledge.extractor import EntityExtractor
 from ..knowledge.graph_store import GraphStore
-from ..search.fusion import HybridSearch
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

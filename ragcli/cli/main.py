@@ -6,17 +6,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm, IntPrompt
-from rich.table import Table
-from rich import print as rprint
 from .commands.config import config_app
-from .commands.upload import app as upload_app
-from .commands.query import app as query_app
 from .commands.documents import app as documents_app
 from .commands.visualize import app as visualize_app
 from .commands.export import app as export_app
 from .commands.db import app as db_app
-from .commands.status import app as status_app
-from .commands.status import app as status_app
 from .commands.models import app as models_app
 from .commands.oracle_test import app as oracle_test_app
 from .commands.eval_cmd import app as eval_app
@@ -44,8 +38,6 @@ app.add_typer(eval_app, name="eval")
 app.add_typer(sync_app, name="sync")
 
 # Expose commands directly
-from .commands.upload import add as upload_cmd
-from .commands.query import ask as ask_cmd
 from .commands.status import status as status_cmd
 
 app.command(name="upload")(upload_cmd)

@@ -4,8 +4,7 @@ import hashlib
 import requests
 import json
 from collections import OrderedDict
-from typing import List, Dict, Any, Generator, Optional, Callable
-from ragcli.config.config_manager import load_config
+from typing import List, Dict, Generator, Optional, Callable
 from ..utils.helpers import retry_with_backoff
 from ..utils.logger import get_logger
 

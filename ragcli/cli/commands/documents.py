@@ -6,7 +6,6 @@ from rich.table import Table
 from rich import print as rprint
 from ragcli.config.config_manager import load_config
 from ragcli.database.oracle_client import OracleClient
-from typing import Optional
 
 app = typer.Typer()
 console = Console()
@@ -29,10 +28,10 @@ def list_documents(config, format='table', verbose=False):
         if cursor: cursor.close()
         if conn: conn.close()
         client.close()
-    
+
     if format == 'table':
         table = Table(
-            title="   Managed Intelligence Assets", 
+            title="   Managed Intelligence Assets",
             show_header=True,
             box=None,
             header_style="bold #a855f7",
@@ -45,7 +44,7 @@ def list_documents(config, format='table', verbose=False):
         table.add_column("Uploaded", style="dim white")
         table.add_column("Chunks", justify="right", style="#9333ea")
         table.add_column("Tokens", justify="right", style="#a855f7")
-        
+
         for row in rows:
             # Shorten ID for display
             display_id = row[0][:8] + "..." if len(row[0]) > 10 else row[0]

@@ -3,7 +3,7 @@
 import time
 import psutil
 from typing import Dict, List, Any, Optional
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
 from .logger import get_logger
 

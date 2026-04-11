@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, List
+from typing import Dict
 
 from ragcli.core.embedding import generate_response
 from ragcli.utils.logger import get_logger

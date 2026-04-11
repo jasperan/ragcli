@@ -5,7 +5,7 @@ import tempfile
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -15,9 +15,7 @@ import uvicorn
 from ragcli.config.config_manager import load_config
 from ragcli.core.rag_engine import upload_document, ask_query
 from ragcli.core.ollama_manager import (
-    list_available_models,
-    get_model_info,
-    validate_model
+    list_available_models
 )
 from ragcli.database.oracle_client import OracleClient
 from ragcli.utils.status import get_overall_status, get_document_stats
@@ -66,7 +64,6 @@ from .models import (
 from ragcli.database.vector_ops import get_embedding_graph, get_query_graph
 from ragcli.core.embedding import generate_embedding
 from ragcli.feedback.collector import FeedbackCollector
-from ragcli.feedback.analyzer import FeedbackAnalyzer
 from ragcli.eval.runner import EvalRunner
 from ragcli.sync.scheduler import SyncScheduler
 from ragcli.memory.session import SessionManager
@@ -428,7 +425,7 @@ async def _stream_query(request: QueryRequest):
             conn.close()  # Release immediately after search — no connection held during streaming
 
     try:
-        chunks, query_embedding = await asyncio.to_thread(_do_search)
+        chunks, _query_embedding = await asyncio.to_thread(_do_search)
 
         chunk_data = [
             {

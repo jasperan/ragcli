@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
 import questionary
-from typing import Optional, List
+from typing import Optional
 from questionary import Choice
 
 def interactive_file_selector(start_path: Path = Path(".")) -> Optional[Path]:
@@ -20,7 +19,7 @@ def interactive_file_selector(start_path: Path = Path(".")) -> Optional[Path]:
             continue
 
         choices = []
-        
+
         # Add parent directory option if not at root
         if current_path.parent != current_path:
             choices.append(Choice(title=".. (Go Up)", value=current_path.parent))
@@ -29,7 +28,7 @@ def interactive_file_selector(start_path: Path = Path(".")) -> Optional[Path]:
         for item in items:
             if item.name.startswith('.'):
                 continue
-                
+
             if item.is_dir():
                 title = f"📁 {item.name}/"
                 choices.append(Choice(title=title, value=item))
@@ -47,8 +46,8 @@ def interactive_file_selector(start_path: Path = Path(".")) -> Optional[Path]:
                 ('qmark', 'fg:#5f819d bold'),
                 ('question', 'fg:#282828 bold'),
                 ('answer', 'fg:#5f819d bold'),
-                ('pointer', 'fg:#ff0055 bold'), 
-                ('highlighted', 'fg:#ff0055 bold'), 
+                ('pointer', 'fg:#ff0055 bold'),
+                ('highlighted', 'fg:#ff0055 bold'),
                 ('selected', 'fg:#cc5454'),
                 ('separator', 'fg:#cc5454'),
                 ('instruction', 'fg:#666666 italic')
@@ -57,7 +56,7 @@ def interactive_file_selector(start_path: Path = Path(".")) -> Optional[Path]:
 
         if selection is CANCEL_SENTINEL or selection is None:
             return None
-        
+
         if selection == current_path.parent:
             current_path = selection
         elif selection.is_dir():

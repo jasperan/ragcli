@@ -1,6 +1,6 @@
 """Query rewriting with conversation context."""
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from ..core.embedding import generate_response
 from ..utils.logger import get_logger
 

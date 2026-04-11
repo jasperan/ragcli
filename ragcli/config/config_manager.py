@@ -2,8 +2,8 @@
 
 import yaml
 import os
-from typing import Dict, Any, Optional
-from .defaults import DEFAULT_CONFIG, REQUIRED_FIELDS
+from typing import Dict, Any
+from .defaults import DEFAULT_CONFIG
 from ..utils.helpers import parse_env_vars, deep_merge
 from ..utils.validators import validate_config as validate_config_values
 
@@ -27,17 +27,17 @@ def validate_config(config: Dict) -> None:
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     """
     Safely load configuration from YAML with environment variable substitution.
-    
+
     Features:
     - Validates required fields
     - Expands environment variables (${VAR_NAME} syntax)
     - Applies default values for missing optional fields
     - Checks for sensitive data exposure
     - Validates connection parameters
-    
+
     Returns:
         dict: Merged configuration with defaults
-        
+
     Raises:
         ConfigValidationError: If configuration is invalid
     """
@@ -46,7 +46,7 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
             config_path = "config.yaml.example"
         else:
             raise FileNotFoundError("No config.yaml or config.yaml.example found.")
-    
+
     with open(config_path, "r", encoding="utf-8") as f:
         loaded_config = yaml.safe_load(f) or {}
 
@@ -64,5 +64,5 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
 
     # Validate
     validate_config(merged_config)
-    
+
     return merged_config

@@ -3,8 +3,7 @@ Oracle AI Vector Search Integration for ragcli.
 Wraps langchain-oracledb functionality for easier use within the application.
 """
 
-import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import oracledb
 from ragcli.utils.logger import get_logger
 
@@ -29,7 +28,7 @@ except ImportError:
 
 class OracleIntegrationManager:
     """Manager for Oracle AI Vector Search integrations."""
-    
+
     def __init__(self, conn: oracledb.Connection):
         if not HAS_ORACLE_LANGCHAIN:
             raise ImportError("langchain-oracledb is required for this feature.")
@@ -48,16 +47,16 @@ class OracleIntegrationManager:
         # Default params if none provided
         if params is None:
             params = {"normalize": "all"}
-            
+
         splitter = OracleTextSplitter(conn=self.conn, params=params)
-        
+
         chunks = []
         if docs:
             for doc in docs:
                 chunks.extend(splitter.split_text(doc.page_content))
         elif text:
             chunks.extend(splitter.split_text(text))
-            
+
         return chunks
 
     def generate_summary(self, text: str, provider: str = "database", params: Dict = None) -> str:
@@ -69,7 +68,7 @@ class OracleIntegrationManager:
                 "numParagraphs": 1,
                 "language": "english"
             }
-        
+
         # Adjust params based on provider if needed, or assume caller passes correct params
         if provider != "database" and "provider" not in params:
             params["provider"] = provider
@@ -81,10 +80,10 @@ class OracleIntegrationManager:
         """Generate embeddings using OracleEmbeddings."""
         if params is None:
             params = {"provider": "database", "model": "ALL_MINILM_L12_V2"} # Confirmed existing model
-            
+
         embedder = OracleEmbeddings(conn=self.conn, params=params, proxy=proxy)
         return embedder.embed_documents(texts)
-    
+
     def load_from_adb(self, query: str, **kwargs) -> List[Any]:
         """Load documents from Autonomous Database."""
         # This wrapper might need specific connection info passed if not using current conn

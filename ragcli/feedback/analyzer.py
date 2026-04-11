@@ -1,5 +1,5 @@
 """Feedback analysis and quality distribution reporting."""
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from ragcli.feedback.collector import _wilson_score
 from ragcli.utils.logger import get_logger

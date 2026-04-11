@@ -74,25 +74,8 @@ class FeedbackCollector:
         pos_inc = 1 if rating > 0 else 0
         neg_inc = 1 if rating < 0 else 0
 
-        merge_sql = """
-            MERGE INTO CHUNK_QUALITY cq
-            USING (SELECT :chunk_id AS chunk_id FROM DUAL) src
-            ON (cq.chunk_id = src.chunk_id)
-            WHEN MATCHED THEN
-                UPDATE SET
-                    positive_count = cq.positive_count + :pos_inc,
-                    negative_count = cq.negative_count + :neg_inc,
-                    quality_score = :new_score_placeholder,
-                    last_updated = SYSTIMESTAMP
-            WHEN NOT MATCHED THEN
-                INSERT (chunk_id, positive_count, negative_count, quality_score, last_updated)
-                VALUES (:chunk_id_ins, :init_pos, :init_neg, :init_score, SYSTIMESTAMP)
-        """
-        # We need current counts to compute the new Wilson score.
-        # For the INSERT case, we know the counts. For UPDATE, we use a two-step
-        # approach: first try to read existing counts, then merge.
-        # But since MERGE can't easily call Python mid-statement, we do a
-        # simple MERGE that increments counts, then a follow-up UPDATE for the score.
+        # MERGE can't call Python mid-statement, so we use a two-step approach:
+        # upsert counts first, then compute and store the Wilson score in a follow-up UPDATE.
 
         # Step 1: MERGE to upsert counts
         merge_counts_sql = """

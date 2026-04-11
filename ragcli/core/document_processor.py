@@ -2,7 +2,7 @@
 
 import tiktoken
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from .ocr_processor import pdf_to_markdown
 
 
@@ -77,27 +77,27 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
     """
     # Check if we should use Oracle splitter
     use_oracle_splitter = config.get('documents', {}).get('use_oracle_splitter', False)
-    
+
     if conn and use_oracle_splitter:
         try:
             from .oracle_integration import OracleIntegrationManager
             manager = OracleIntegrationManager(conn)
-            
+
             # Oracle splitter params from config
             params = config.get('documents', {}).get('oracle_splitter_params', {"normalize": "all"})
-            
+
             # Use Oracle splitter
             chunks_text = manager.split_text(text=text, params=params)
-            
+
             # Post-process chunks to match expected format
             processed_chunks = []
-            
+
             # We still need token counts for metadata
             try:
                 enc = tiktoken.get_encoding("cl100k_base")
             except Exception:
                 enc = None
-                
+
             for chunk_str in chunks_text:
                 tokens = len(enc.encode(chunk_str)) if enc else len(chunk_str.split())
                 processed_chunks.append({
@@ -105,12 +105,12 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
                     'token_count': tokens,
                     'char_count': len(chunk_str)
                 })
-                
+
             if progress_callback:
                 progress_callback(len(text), len(text))
-                
+
             return processed_chunks
-            
+
         except Exception:
             pass  # Fallback to local chunking
 
@@ -134,7 +134,7 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
     chunks = []
     text_tokens = enc.encode(text) if enc else text.split()
     total_tokens = len(text_tokens)
-    
+
     if total_tokens == 0:
         return []
 
@@ -155,14 +155,14 @@ def chunk_text(text: str, config: dict, progress_callback=None, conn=None) -> Li
 
         if end >= total_tokens:
             break
-            
+
         start += (chunk_size - overlap_tokens)
-        
+
         # Safety: ensure we always move forward at least 1 token
         if start <= (end - chunk_size + overlap_tokens): # This is always true if start was end - overlap
             # The simplified logic above 'start += (chunk_size - overlap_tokens)' is better
             pass
-            
+
     return chunks
 
 

@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from ragcli.utils.helpers import generate_uuid
 from ragcli.utils.logger import get_logger

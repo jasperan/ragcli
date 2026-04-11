@@ -1,7 +1,6 @@
 """Oracle Database 26ai client for ragcli."""
 
 import oracledb
-from typing import Optional
 from .schemas import get_create_schemas_sql
 
 # Force thin mode (default) to avoid thick mode credential issues

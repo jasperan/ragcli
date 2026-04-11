@@ -2,10 +2,9 @@
 
 import numpy as np
 import plotly.graph_objects as go
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Optional, Tuple
 from sklearn.manifold import TSNE
 import umap
-from ..core.embedding import generate_embedding
 from ..config.config_manager import load_config
 
 

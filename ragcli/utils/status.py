@@ -3,7 +3,6 @@
 import requests
 from typing import Dict, Any
 from ragcli.database.oracle_client import OracleClient
-from ragcli.config.config_manager import load_config
 from rich.console import Console
 
 console = Console()
@@ -17,7 +16,7 @@ def check_db_connection(config: Dict[str, Any]) -> Dict[str, Any]:
         conn = client.get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT 1 FROM DUAL")
-        result = cursor.fetchone()
+        cursor.fetchone()
         return {"status": "connected", "message": "Oracle DB connected successfully", "active_sessions": "N/A"}
     except Exception as e:
         return {"status": "disconnected", "message": f"Oracle DB connection failed: {str(e)}", "active_sessions": 0}
@@ -34,16 +33,16 @@ def get_document_stats(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         conn = client.get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
         doc_count = cursor.fetchone()[0]
-        
+
         cursor.execute("SELECT COUNT(*) FROM CHUNKS")
         vector_count = cursor.fetchone()[0]
-        
+
         cursor.execute("SELECT SUM(total_tokens) FROM DOCUMENTS")
         total_tokens = cursor.fetchone()[0] or 0
-        
+
         return {
             "status": "ok" if doc_count > 0 else "empty",
             "documents": doc_count,
@@ -75,14 +74,14 @@ def get_overall_status(config: Dict[str, Any]) -> Dict[str, Any]:
     db = check_db_connection(config)
     stats = get_document_stats(config)
     ollama = check_ollama(config)
-    
+
     overall = {
         "database": db,
         "documents": stats,
         "ollama": ollama,
         "healthy": all(s["status"] in ["connected", "ok"] for s in [db, ollama])
     }
-    
+
     return overall
 
 def print_status(status: Dict[str, Any], rich_output: bool = True):
@@ -93,12 +92,12 @@ def print_status(status: Dict[str, Any], rich_output: bool = True):
         table.add_column("Component", style="cyan")
         table.add_column("Status", style="green")
         table.add_column("Details")
-        
+
         table.add_row("Database", status["database"]["status"], status["database"]["message"])
         table.add_row("Documents", status["documents"]["status"], f"{status['documents']['documents']} docs, {status['documents']['vectors']} vectors")
         table.add_row("Ollama", status["ollama"]["status"], status["ollama"]["message"])
         table.add_row("Overall", "healthy" if status["healthy"] else "issues", "All checks passed" if status["healthy"] else "Some issues detected")
-        
+
         console.print(table)
     else:
         # For logs or JSON
@@ -114,24 +113,24 @@ def get_vector_statistics(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         conn = client.get_connection()
         cursor = conn.cursor()
-        
+
         # Get basic counts
         cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
         doc_count = cursor.fetchone()[0]
-        
+
         cursor.execute("SELECT COUNT(*) FROM CHUNKS")
         vector_count = cursor.fetchone()[0]
-        
+
         cursor.execute("SELECT SUM(total_tokens) FROM DOCUMENTS")
         total_tokens = cursor.fetchone()[0] or 0
-        
+
         # Get average chunks per document
         avg_chunks = vector_count / doc_count if doc_count > 0 else 0
-        
+
         # Get dimension from config
         dimension = config.get('vector_index', {}).get('dimension', 768)
         index_type = config.get('vector_index', {}).get('index_type', 'HNSW')
-        
+
         return {
             'total_documents': doc_count,
             'total_vectors': vector_count,
@@ -166,7 +165,7 @@ def get_index_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
     try:
         conn = client.get_connection()
         cursor = conn.cursor()
-        
+
         # Query index information
         cursor.execute("""
             SELECT index_name, table_name, column_name, status
@@ -174,7 +173,7 @@ def get_index_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
             WHERE table_name IN ('CHUNKS', 'DOCUMENTS')
             ORDER BY index_name
         """)
-        
+
         indexes = []
         for row in cursor.fetchall():
             indexes.append({
@@ -183,7 +182,7 @@ def get_index_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
                 'column_name': row[2] if row[2] else 'N/A',
                 'status': row[3]
             })
-        
+
         return {'indexes': indexes}
     except Exception as e:
         return {'error': str(e), 'indexes': []}

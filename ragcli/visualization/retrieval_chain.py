@@ -1,11 +1,8 @@
 """Retrieval chain visualization for ragcli."""
 
 from rich.console import Console
-from rich.panel import Panel
 from rich.tree import Tree
-from rich import print as rprint
 from typing import Dict, Any
-import time
 
 console = Console()
 

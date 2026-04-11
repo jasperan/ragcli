@@ -1,13 +1,7 @@
 """OCR processing for PDFs using DeepSeek-OCR via vLLM in ragcli."""
 
-import requests
-import base64
 from typing import Optional
 from pdfplumber import open as pdf_open
-from PIL import Image
-from io import BytesIO
-from ..config.config_manager import load_config
-from ..utils.helpers import retry_with_backoff
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)

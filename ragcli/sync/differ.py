@@ -8,7 +8,6 @@ import difflib
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-from ragcli.utils.helpers import generate_uuid
 from ragcli.utils.logger import get_logger
 
 logger = get_logger(__name__)

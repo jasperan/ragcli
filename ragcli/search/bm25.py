@@ -1,6 +1,5 @@
 """BM25 full-text search via Oracle Text CONTAINS()."""
 
-import re
 from typing import List, Dict, Any, Optional
 from ..utils.logger import get_logger
 

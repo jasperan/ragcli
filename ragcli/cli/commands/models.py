@@ -1,7 +1,6 @@
 """Model management commands for ragcli CLI."""
 
 import typer
-from rich import print as rprint
 from rich.table import Table
 from rich.console import Console
 from ragcli.core.ollama_manager import (
@@ -23,7 +22,7 @@ def list_models(
 ):
     """List available Ollama models."""
     config = load_config()
-    
+
     if type == "embedding":
         models = get_embedding_models(config)
         title = "Available Embedding Models"
@@ -33,39 +32,39 @@ def list_models(
     else:
         # Show all with categorization
         all_models = list_available_models(config)
-        
+
         table = Table(title="Available Ollama Models")
         table.add_column("Model Name", style="cyan")
         table.add_column("Type", style="magenta")
         table.add_column("Size", style="yellow")
         table.add_column("Modified", style="green")
-        
+
         for model in all_models.get('models', []):
             name = model['name']
             size_gb = model.get('size', 0) / (1024**3)
             modified = model.get('modified_at', 'N/A')[:19]  # Truncate timestamp
-            
+
             # Determine type
             if 'embed' in name.lower():
                 model_type = "Embedding"
             else:
                 model_type = "Chat/LLM"
-            
+
             table.add_row(
                 name,
                 model_type,
                 f"{size_gb:.2f} GB",
                 modified
             )
-        
+
         console.print(table)
-        
+
         # Show current config
         console.print("\n[bold]Current Configuration:[/bold]")
         console.print(f"  Embedding Model: [cyan]{config['ollama']['embedding_model']}[/cyan]")
         console.print(f"  Chat Model: [cyan]{config['ollama']['chat_model']}[/cyan]")
         return
-    
+
     # Simple list for filtered types
     if models:
         console.print(f"\n[bold]{title}:[/bold]")
@@ -79,11 +78,11 @@ def list_models(
 def validate_models():
     """Validate configured models exist in Ollama."""
     config = load_config()
-    
+
     console.print("[bold]Validating configured models...[/bold]\n")
-    
+
     results = validate_config_models(config)
-    
+
     # Embedding model
     if results['embedding_model_valid']:
         console.print(f"✓ Embedding model '[cyan]{config['ollama']['embedding_model']}[/cyan]' is available")
@@ -91,7 +90,7 @@ def validate_models():
         console.print(f"✗ Embedding model '[red]{config['ollama']['embedding_model']}[/red]' not found")
         if 'embedding_model' in results['suggestions']:
             console.print(f"  → Suggestion: Use '[green]{results['suggestions']['embedding_model']}[/green]'")
-    
+
     # Chat model
     if results['chat_model_valid']:
         console.print(f"✓ Chat model '[cyan]{config['ollama']['chat_model']}[/cyan]' is available")
@@ -99,13 +98,13 @@ def validate_models():
         console.print(f"✗ Chat model '[red]{config['ollama']['chat_model']}[/red]' not found")
         if 'chat_model' in results['suggestions']:
             console.print(f"  → Suggestion: Use '[green]{results['suggestions']['chat_model']}[/green]'")
-    
+
     # Warnings
     if results['warnings']:
         console.print("\n[yellow]Warnings:[/yellow]")
         for warning in results['warnings']:
             console.print(f"  ! {warning}")
-    
+
     # Overall status
     if results['embedding_model_valid'] and results['chat_model_valid']:
         console.print("\n[bold green]All models validated successfully![/bold green]")
@@ -117,7 +116,7 @@ def validate_models():
 def check_model(model_name: str):
     """Check if a specific model is available."""
     config = load_config()
-    
+
     if validate_model(model_name, config):
         console.print(f"✓ Model '[green]{model_name}[/green]' is available in Ollama")
     else:
@@ -127,4 +126,3 @@ def check_model(model_name: str):
 
 if __name__ == "__main__":
     app()
-
