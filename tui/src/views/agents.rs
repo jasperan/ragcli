@@ -4,6 +4,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::text::{Line, Span};
 use ratatui::style::{Modifier, Style};
 use crossterm::event::KeyCode;
+use rattles::presets::prelude as spinners;
 use crate::theme::Theme;
 use super::View;
 
@@ -33,12 +34,12 @@ impl AgentPane {
         }
     }
 
-    pub fn status_icon(&self) -> &str {
+    pub fn status_icon(&self) -> String {
         match self.status {
-            AgentStatus::Pending => "○",
-            AgentStatus::Running => "●",
-            AgentStatus::Complete => "✓",
-            AgentStatus::Failed => "✗",
+            AgentStatus::Pending => "○".to_string(),
+            AgentStatus::Running => spinners::dots().current_frame().to_string(),
+            AgentStatus::Complete => "✓".to_string(),
+            AgentStatus::Failed => "✗".to_string(),
         }
     }
 
@@ -136,10 +137,15 @@ impl AgentsView {
         let lines: Vec<Line> = if matches!(agent.status, AgentStatus::Pending) {
             vec![Line::from(Span::styled("(waiting)", Style::default().fg(Theme::DIM)))]
         } else if agent.output.is_empty() {
-            vec![Line::from(Span::styled(
-                if matches!(agent.status, AgentStatus::Running) { "Running..." } else { "" },
-                Style::default().fg(Theme::DIM),
-            ))]
+            if matches!(agent.status, AgentStatus::Running) {
+                let frame = spinners::waverows().current_frame();
+                vec![Line::from(vec![
+                    Span::styled(frame, Style::default().fg(Theme::PRIMARY)),
+                    Span::styled(" thinking...", Style::default().fg(Theme::DIM)),
+                ])]
+            } else {
+                vec![Line::from("")]
+            }
         } else {
             agent.output.iter().map(|s| Line::from(Span::styled(s.as_str(), Style::default().fg(Theme::TEXT)))).collect()
         };
