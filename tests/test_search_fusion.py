@@ -1,5 +1,4 @@
 """Test hybrid search fusion."""
-from collections import defaultdict
 
 
 def test_rrf_formula():

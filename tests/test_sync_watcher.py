@@ -1,7 +1,7 @@
 """Test file watcher and sync scheduler."""
 import time
-from unittest.mock import MagicMock, patch, call
-from ragcli.sync.watcher import FileChangeHandler, DirectoryWatcher, GitPoller, URLPoller
+from unittest.mock import MagicMock, patch
+from ragcli.sync.watcher import FileChangeHandler, GitPoller, URLPoller
 from ragcli.sync.scheduler import SyncScheduler
 
 

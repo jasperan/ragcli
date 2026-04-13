@@ -15,7 +15,7 @@ interface GraphCanvasProps {
 }
 
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { graph, highlightedDocumentId, onNodeSelect },
+  { graph, highlightedDocumentId, onNodeSelect: _onNodeSelect },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
