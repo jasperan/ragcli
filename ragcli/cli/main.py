@@ -89,7 +89,7 @@ def print_header():
 
     # Premium Gemini-style header
 
-    header_content = f"""
+    header_content = """
 [bold #a855f7]r[/bold #a855f7][bold #9333ea]a[/bold #9333ea][bold #7e22ce]g[/bold #7e22ce][bold #6b21a8]c[/bold #6b21a8][bold #581c87]l[/bold #581c87][bold #4c1d95]i[/bold #4c1d95] [dim bold grey50]Command Center[/]
     """
 

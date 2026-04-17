@@ -28,27 +28,27 @@ def add(
             console.print("[yellow]Operation cancelled.[/yellow]")
             raise typer.Exit(0)
         file_path = str(selected_path)
-    
+
     path = Path(file_path)
     if not path.exists():
         console.print("[red]File or directory not found.[/red]")
         raise typer.Exit(1)
 
     supported_formats = config['documents']['supported_formats']
-    
+
     if path.is_dir() and recursive:
         # Walk directory, upload each file
         files = list(path.rglob("*"))
         files = [f for f in files if f.is_file() and f.suffix.lstrip('.') in supported_formats]
-        
+
         if not files:
-            console.print(f"[yellow]No supported documents found in directory.[/yellow]")
+            console.print("[yellow]No supported documents found in directory.[/yellow]")
             console.print(f"Supported formats: [bold]{', '.join(supported_formats)}[/bold]")
             return
 
-        
+
         console.print(f"   [bold #a855f7]Discovery:[/bold #a855f7] Identified [white]{len(files)}[/white] compatible document(s)\n")
-        
+
         with Progress(
             SpinnerColumn(style="bold #a855f7"),
             TextColumn("   [progress.description]{task.description}"),
@@ -57,8 +57,8 @@ def add(
             TimeRemainingColumn(),
             console=console
         ) as progress:
-            overall_task = progress.add_task(f"[dim white]Orchestrating batch upload...[/dim white]", total=len(files))
-            
+            overall_task = progress.add_task("[dim white]Orchestrating batch upload...[/dim white]", total=len(files))
+
             for file in files:
                 try:
                     metadata = upload_document_with_progress(str(file), config, progress)
@@ -67,9 +67,9 @@ def add(
                 except Exception as e:
                     console.print(f"   [bold red]✗[/bold red] [dim]{file.name}: {e}[/dim]")
                 progress.advance(overall_task)
-        
+
         console.print("\n   [bold #a855f7]Audit Complete:[/bold #a855f7] [white]Batch ingestion successful.[/white]")
-        
+
     else:
         if path.is_dir():
             console.print("   [yellow]Recursive flag (-r) required for directory traversal.[/yellow]")
@@ -81,7 +81,7 @@ def add(
             console.print(f"Supported formats: [bold]{', '.join(supported_formats)}[/bold]")
             console.print("See: https://docs.oracle.com/en/database/oracle/oracle-database/26/ccref/oracle-text-supported-document-formats.html")
             raise typer.Exit(1)
-        
+
         try:
             with Progress(
                 SpinnerColumn(style="bold #a855f7"),
@@ -92,7 +92,7 @@ def add(
                 console=console
             ) as progress:
                 metadata = upload_document_with_progress(str(path), config, progress)
-            
+
             # Show success summary
             summary = f"""
 [dim white]Asset ID:[/dim white]      [#9333ea]{metadata['document_id']}[/#9333ea]
@@ -104,17 +104,17 @@ def add(
 [dim white]Latency:[/dim white]       [#a855f7]{metadata['upload_time_ms']:.0f} ms[/#a855f7]
             """
             console.print(Panel(
-                summary.strip(), 
-                title="[bold white]   Ingestion Audit Successful   [/bold white]", 
+                summary.strip(),
+                title="[bold white]   Ingestion Audit Successful   [/bold white]",
                 border_style="#6b21a8",
                 padding=(1, 2)
             ))
-            
+
             if verbose:
                 console.print("\n   [bold white]Extended Metadata:[/bold white]")
                 for k, v in metadata.items():
                     console.print(f"      [dim white]{k}:[/dim white] [#a855f7]{v}[/#a855f7]")
-                    
+
         except Exception as e:
             console.print(f"[bold red]✗ Upload failed:[/bold red] {e}")
             raise typer.Exit(1)

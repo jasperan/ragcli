@@ -88,7 +88,7 @@ def upload_document(file_path: str, config: Optional[dict] = None, progress=None
         doc_meta = get_document_metadata(text, chunks, ocr_used)
 
         if progress:
-            progress.update(process_task, completed=50, description=f"[cyan]Creating embeddings...")
+            progress.update(process_task, completed=50, description="[cyan]Creating embeddings...")
 
         doc_id = insert_document(
             conn, path.name, file_format.upper(), file_size, doc_meta['extracted_text_size_bytes'],

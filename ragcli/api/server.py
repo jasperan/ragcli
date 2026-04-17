@@ -93,7 +93,7 @@ class _TokenBucket:
     def __init__(self, rate: float, burst: int):
         self.rate = rate      # tokens per second
         self.burst = burst    # max bucket size
-        self._buckets: dict = defaultdict(lambda: [burst, time.monotonic()])
+        self._buckets: dict[str, list[float]] = defaultdict(lambda: [burst, time.monotonic()])
 
     def allow(self, key: str) -> bool:
         tokens, last = self._buckets[key]

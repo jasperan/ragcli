@@ -155,9 +155,9 @@ def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0, max_
     for attempt in range(max_retries):
         try:
             return func()
-        except Exception as e:
+        except Exception:
             if attempt == max_retries - 1:
-                raise e
+                raise
 
             delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
             time.sleep(delay)

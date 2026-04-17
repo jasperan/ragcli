@@ -38,7 +38,7 @@ def show_retrieval_chain(result: Dict[str, Any], console_output: bool = True):
 
         # LLM Generation
         llm_node = tree.add("5. LLM Generation")
-        llm_node.add(f"[Model]: llama2")
+        llm_node.add("[Model]: llama2")
         llm_node.add(f"[Time]: {result['metrics']['generation_time_ms']:.2f}ms")
         llm_node.add(f"[Response Tokens]: {result['metrics']['completion_tokens']}")
         llm_node.add(f"[Response]: {result['response'][:200]}...")
