@@ -108,7 +108,7 @@ Each view has its own keybindings. Press `?` inside any view to see them.
 
 ## Features
 
-### v2.0 — Graph-Augmented, Self-Improving Knowledge Engine
+### v2.0: Graph-Augmented, Self-Improving Knowledge Engine
 
 | Feature | What it does |
 |---------|-------------|
@@ -149,7 +149,7 @@ See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for links
 ## Installation
 
 <!-- one-command-install -->
-> **One-command install** — clone, configure, and run in a single step:
+> **One-command install** (clone, configure, and run in a single step):
 >
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/jasperan/ragcli/main/install.sh | bash
@@ -497,13 +497,13 @@ provider: "database"
 model: "ALL_MINILM_L12_V2" # ONNX model loaded in Oracle DB
 ```
 
-This eliminates external API calls for embeddings and leverages Oracle's native AI capabilities.
+This eliminates external API calls for embeddings and uses Oracle's native AI capabilities directly.
 
 ## Troubleshooting
 
 - **Ollama unreachable**: Run `ollama serve` and check endpoint. Use `ragcli models list` to verify.
 - **Oracle DPY-1005 (Busy Connection)**: Fixed! Ensure you are using the latest version which properly handles connection pooling and closure.
-- **Oracle ORA-01745/01484 (Vector Ingestion)**: Fixed! Vector ingestion now uses robust `TO_VECTOR` with JSON-serialized input for maximum compatibility.
+- **Oracle ORA-01745/01484 (Vector Ingestion)**: Fixed! Vector ingestion now uses reliable `TO_VECTOR` with JSON-serialized input for maximum compatibility.
 - **Looping/Stuck Upload**: Fixed! Corrected infinite loop in `chunk_text` for small documents (<100 tokens).
 - **Model not found**: Run `ragcli models validate` for suggestions. Pull with `ollama pull `.
 - **API connection**: Check `ragcli api` is running. Test with `curl http://localhost:8000/api/status`.
