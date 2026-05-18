@@ -21,9 +21,12 @@ RAGCLI_PORT=9000 ./tui/target/release/ragcli-tui
 
 # Custom project root:
 RAGCLI_ROOT=/path/to/ragcli ./tui/target/release/ragcli-tui
+
+# Connect to an already-running API instead of spawning one:
+RAGCLI_API_URL=http://localhost:8000 ./tui/target/release/ragcli-tui
 ```
 
-The binary spawns the FastAPI server, waits for it to be healthy, then renders the dashboard.
+By default the binary starts `ragcli api`, waits for it to be healthy, then renders the dashboard. In a source checkout it uses `python3 ragcli.py api`; from an installed package it falls back to the `ragcli` console command. Set `RAGCLI_API_URL` to connect to an API that is already running.
 
 ## Views
 
@@ -44,11 +47,13 @@ q          Quit
 Tab        Next view
 /          Command palette
 ?          Help overlay
+r          Refresh data in Docs/System views
+d,d        Confirm document deletion in Docs view
 ```
 
 ## Requirements
 
 - Rust 1.70+ and Cargo
-- Python 3.9+ with ragcli installed
+- Python 3.9+ with ragcli installed or a source checkout
 - Running Ollama instance
 - Oracle Database 26ai

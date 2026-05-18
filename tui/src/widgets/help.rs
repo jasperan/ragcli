@@ -1,9 +1,9 @@
-use ratatui::Frame;
-use ratatui::layout::Rect;
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use ratatui::text::{Line, Span};
-use ratatui::style::{Style, Modifier};
 use crate::theme::Theme;
+use ratatui::layout::Rect;
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::Frame;
 
 pub struct HelpOverlay {
     pub visible: bool,
@@ -18,8 +18,16 @@ impl HelpOverlay {
         self.visible = !self.visible;
     }
 
-    pub fn render(&self, frame: &mut Frame, area: Rect, view_name: &str, keybindings: &[(&str, &str)]) {
-        if !self.visible { return; }
+    pub fn render(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        view_name: &str,
+        keybindings: &[(&str, &str)],
+    ) {
+        if !self.visible {
+            return;
+        }
 
         let global_keys: &[(&str, &str)] = &[
             ("q", "Quit"),
@@ -46,12 +54,17 @@ impl HelpOverlay {
         // View-specific header
         lines.push(Line::from(Span::styled(
             format!(" {} Keys", view_name),
-            Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Theme::PRIMARY)
+                .add_modifier(Modifier::BOLD),
         )));
 
         for (key, desc) in keybindings {
             lines.push(Line::from(vec![
-                Span::styled(format!("  {:>10}", key), Style::default().fg(Theme::WARNING)),
+                Span::styled(
+                    format!("  {:>10}", key),
+                    Style::default().fg(Theme::WARNING),
+                ),
                 Span::raw("  "),
                 Span::styled(*desc, Style::default().fg(Theme::TEXT)),
             ]));
@@ -63,12 +76,17 @@ impl HelpOverlay {
         // Global header
         lines.push(Line::from(Span::styled(
             " Global Keys",
-            Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Theme::PRIMARY)
+                .add_modifier(Modifier::BOLD),
         )));
 
         for (key, desc) in global_keys {
             lines.push(Line::from(vec![
-                Span::styled(format!("  {:>10}", key), Style::default().fg(Theme::WARNING)),
+                Span::styled(
+                    format!("  {:>10}", key),
+                    Style::default().fg(Theme::WARNING),
+                ),
                 Span::raw("  "),
                 Span::styled(*desc, Style::default().fg(Theme::TEXT)),
             ]));

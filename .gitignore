@@ -247,6 +247,7 @@ SKILLS_EXECUTION_SUMMARY.md
 docs/plans/
 docs/*.md
 !docs/README.md
+!docs/friction-audit.md
 *_FEATURES.md
 *_ENHANCEMENTS.md
 *_REPORT.md

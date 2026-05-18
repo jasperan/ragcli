@@ -1,7 +1,10 @@
 """Security audit tests: rate limiting, body size limits, error sanitization, CORS."""
 
+import os
+import subprocess
 import pytest
 import time
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
@@ -136,6 +139,26 @@ class TestCORSDefaults:
         assert "*" not in origins
         assert all(o.startswith("http") for o in origins)
 
+    def test_default_api_host_is_loopback(self):
+        """Default API binding should not expose the service on every interface."""
+        from ragcli.config.defaults import DEFAULT_CONFIG
+        assert DEFAULT_CONFIG['api']['host'] == "127.0.0.1"
+
+    def test_missing_cors_config_uses_safe_defaults(self):
+        """Missing CORS config should not fall back to wildcard origins."""
+        with patch('ragcli.api.server.load_config') as mock_cfg:
+            mock_cfg.return_value = {
+                'documents': {'max_file_size_mb': 1},
+                'ollama': {'endpoint': 'http://localhost:11434'},
+                'api': {'enable_swagger': True},
+            }
+            import importlib
+            import ragcli.api.server as srv
+            importlib.reload(srv)
+
+            cors = next(m for m in srv.app.user_middleware if m.cls.__name__ == "CORSMiddleware")
+            assert "*" not in cors.kwargs["allow_origins"]
+
 
 # ---------------------------------------------------------------------------
 # Body size / upload limits
@@ -179,3 +202,53 @@ class TestAPIInputValidation:
         """Negative offset/limit should be rejected by FastAPI validation."""
         response = client.get("/api/documents?offset=-1&limit=10")
         assert response.status_code == 422  # Pydantic validation error
+
+    def test_negative_chunk_pagination(self, client):
+        """Chunk pagination should reject negative offsets before hitting the DB."""
+        response = client.get("/api/documents/doc-1/chunks?offset=-1&limit=10")
+        assert response.status_code == 422
+
+    def test_latency_limit_upper_bound(self, client):
+        """Latency stats should bound the number of rows requested."""
+        response = client.get("/api/stats/latency?limit=100000")
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Docker Oracle startup hardening
+# ---------------------------------------------------------------------------
+
+class TestOracleStartupScript:
+    script = Path(__file__).resolve().parents[1] / "docker/oracle/startup/01-ragcli-user.sh"
+
+    def run_script(self, **env_overrides):
+        env = {"PATH": os.environ.get("PATH", "")}
+        env.update(env_overrides)
+        return subprocess.run(
+            ["bash", str(self.script)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+
+    def test_startup_requires_password(self):
+        result = self.run_script()
+
+        assert result.returncode == 1
+        assert "Set ORACLE_APP_PASSWORD or ORACLE_PWD" in result.stderr
+
+    def test_startup_rejects_unsafe_username(self):
+        result = self.run_script(
+            ORACLE_APP_PASSWORD="SafePass123!",
+            ORACLE_APP_USERNAME="RAGCLI;DROP",
+        )
+
+        assert result.returncode == 1
+        assert "ORACLE_APP_USERNAME must be a simple Oracle identifier" in result.stderr
+
+    def test_startup_rejects_quoted_password(self):
+        result = self.run_script(ORACLE_APP_PASSWORD="bad'pass")
+
+        assert result.returncode == 1
+        assert "ORACLE_APP_PASSWORD must not contain quotes" in result.stderr

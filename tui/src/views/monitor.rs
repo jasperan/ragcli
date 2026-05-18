@@ -1,12 +1,12 @@
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::{Block, Borders, Paragraph, Sparkline, Gauge};
-use ratatui::text::{Line, Span};
-use ratatui::style::{Style, Modifier};
-use crossterm::event::KeyCode;
-use crate::theme::Theme;
-use crate::api::models::{SystemStatus, SystemStats, ModelsResponse};
 use super::View;
+use crate::api::models::{LatencyResponse, ModelsResponse, SystemStats, SystemStatus};
+use crate::theme::Theme;
+use crossterm::event::KeyCode;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Gauge, Paragraph, Sparkline};
+use ratatui::Frame;
 
 pub struct MonitorView {
     pub health: Option<SystemStatus>,
@@ -16,6 +16,8 @@ pub struct MonitorView {
     pub cpu_percent: f64,
     pub mem_percent: f64,
     pub refresh_requested: bool,
+    pub loading: bool,
+    pub error: Option<String>,
 }
 
 impl MonitorView {
@@ -27,106 +29,179 @@ impl MonitorView {
             latency_history: Vec::new(),
             cpu_percent: 0.0,
             mem_percent: 0.0,
-            refresh_requested: false,
+            refresh_requested: true,
+            loading: true,
+            error: None,
         }
     }
 
+    pub fn take_refresh_request(&mut self) -> bool {
+        std::mem::take(&mut self.refresh_requested)
+    }
+
+    pub fn set_health(&mut self, health: SystemStatus) {
+        self.health = Some(health);
+        self.loading = false;
+        self.error = None;
+    }
+
+    pub fn set_stats(&mut self, stats: SystemStats) {
+        self.stats = Some(stats);
+        self.loading = false;
+    }
+
+    pub fn set_models(&mut self, models: ModelsResponse) {
+        self.models = Some(models);
+        self.loading = false;
+    }
+
+    pub fn set_latency(&mut self, latency: LatencyResponse) {
+        self.latency_history = latency
+            .data_points
+            .iter()
+            .rev()
+            .map(|point| point.total_time_ms.max(0.0) as u64)
+            .collect();
+        self.loading = false;
+    }
+
+    pub fn set_error(&mut self, message: String) {
+        self.error = Some(message);
+        self.loading = false;
+    }
+
+    fn component_ok(status: &str) -> bool {
+        matches!(status, "connected" | "ok" | "healthy")
+    }
+
+    fn render_service_card(
+        frame: &mut Frame,
+        area: Rect,
+        title: &str,
+        label: &str,
+        healthy: bool,
+        detail: String,
+    ) {
+        let dot = if healthy { "● " } else { "○ " };
+        let dot_style = if healthy {
+            Style::default().fg(Theme::SUCCESS)
+        } else {
+            Style::default().fg(Theme::ERROR)
+        };
+        let lines = vec![
+            Line::from(vec![
+                Span::styled(dot, dot_style),
+                Span::styled(
+                    label,
+                    Style::default()
+                        .fg(Theme::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+            Line::from(Span::styled(detail, Style::default().fg(Theme::DIM))),
+        ];
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(Theme::border());
+
+        frame.render_widget(Paragraph::new(lines).block(block), area);
+    }
+
     fn render_service_cards(&self, frame: &mut Frame, area: Rect) {
+        let direction = if area.width < 80 {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        };
         let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-                Constraint::Percentage(33),
-            ])
+            .direction(direction)
+            .constraints(match direction {
+                Direction::Vertical => [
+                    Constraint::Length(3),
+                    Constraint::Length(3),
+                    Constraint::Length(3),
+                ],
+                Direction::Horizontal => [
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(34),
+                    Constraint::Percentage(33),
+                ],
+            })
             .split(area);
 
-        // --- API card ---
         let api_healthy = self.health.as_ref().map(|h| h.healthy).unwrap_or(false);
-        let api_dot = if api_healthy { "● " } else { "○ " };
-        let api_dot_style = if api_healthy {
-            Style::default().fg(Theme::SUCCESS)
+        let api_detail = if let Some(error) = &self.error {
+            format!("Error: {}", error)
+        } else if self.loading {
+            "Loading...".to_string()
         } else {
-            Style::default().fg(Theme::ERROR)
+            match &self.stats {
+                Some(s) => format!("{} docs", s.total_documents),
+                None => "Connecting...".to_string(),
+            }
         };
-        let api_detail = match &self.stats {
-            Some(s) => format!("{} docs", s.total_documents),
-            None => "Connecting...".to_string(),
-        };
-        let api_lines = vec![
-            Line::from(vec![
-                Span::styled(api_dot, api_dot_style),
-                Span::styled("API Server", Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(Span::styled(api_detail, Style::default().fg(Theme::DIM))),
-        ];
-        let api_block = Block::default()
-            .title(" API ")
-            .borders(Borders::ALL)
-            .border_style(Theme::border());
-        frame.render_widget(
-            Paragraph::new(api_lines).block(api_block),
+        Self::render_service_card(
+            frame,
             chunks[0],
+            " API ",
+            "API Server",
+            api_healthy,
+            api_detail,
         );
 
-        // --- Oracle DB card ---
-        let db_healthy = self.health.as_ref()
-            .map(|h| h.database.status == "healthy")
+        let db_healthy = self
+            .health
+            .as_ref()
+            .map(|h| Self::component_ok(&h.database.status))
             .unwrap_or(false);
-        let db_dot = if db_healthy { "● " } else { "○ " };
-        let db_dot_style = if db_healthy {
-            Style::default().fg(Theme::SUCCESS)
+        let db_detail = if let Some(health) = &self.health {
+            if db_healthy {
+                match &self.stats {
+                    Some(s) => {
+                        format!("{} vectors, dim={}", s.total_vectors, s.embedding_dimension)
+                    }
+                    None => health.database.message.clone(),
+                }
+            } else {
+                health.database.message.clone()
+            }
         } else {
-            Style::default().fg(Theme::ERROR)
+            "Connecting...".to_string()
         };
-        let db_detail = match &self.stats {
-            Some(s) => format!("{} vectors, dim={}", s.total_vectors, s.embedding_dimension),
-            None => "Connecting...".to_string(),
-        };
-        let db_lines = vec![
-            Line::from(vec![
-                Span::styled(db_dot, db_dot_style),
-                Span::styled("Oracle DB", Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(Span::styled(db_detail, Style::default().fg(Theme::DIM))),
-        ];
-        let db_block = Block::default()
-            .title(" Oracle DB ")
-            .borders(Borders::ALL)
-            .border_style(Theme::border());
-        frame.render_widget(
-            Paragraph::new(db_lines).block(db_block),
+        Self::render_service_card(
+            frame,
             chunks[1],
+            " Oracle DB ",
+            "Oracle DB",
+            db_healthy,
+            db_detail,
         );
 
-        // --- Ollama card ---
-        let ollama_healthy = self.health.as_ref()
-            .map(|h| h.ollama.status == "healthy")
+        let ollama_healthy = self
+            .health
+            .as_ref()
+            .map(|h| Self::component_ok(&h.ollama.status))
             .unwrap_or(false);
-        let ollama_dot = if ollama_healthy { "● " } else { "○ " };
-        let ollama_dot_style = if ollama_healthy {
-            Style::default().fg(Theme::SUCCESS)
+        let ollama_detail = if let Some(health) = &self.health {
+            if ollama_healthy {
+                match &self.models {
+                    Some(m) => format!("{} models", m.chat_models.len() + m.embedding_models.len()),
+                    None => health.ollama.message.clone(),
+                }
+            } else {
+                health.ollama.message.clone()
+            }
         } else {
-            Style::default().fg(Theme::ERROR)
+            "Connecting...".to_string()
         };
-        let ollama_detail = match &self.models {
-            Some(m) => format!("{} models", m.chat_models.len() + m.embedding_models.len()),
-            None => "Connecting...".to_string(),
-        };
-        let ollama_lines = vec![
-            Line::from(vec![
-                Span::styled(ollama_dot, ollama_dot_style),
-                Span::styled("Ollama", Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD)),
-            ]),
-            Line::from(Span::styled(ollama_detail, Style::default().fg(Theme::DIM))),
-        ];
-        let ollama_block = Block::default()
-            .title(" Ollama ")
-            .borders(Borders::ALL)
-            .border_style(Theme::border());
-        frame.render_widget(
-            Paragraph::new(ollama_lines).block(ollama_block),
+        Self::render_service_card(
+            frame,
             chunks[2],
+            " Ollama ",
+            "Ollama",
+            ollama_healthy,
+            ollama_detail,
         );
     }
 
@@ -151,7 +226,10 @@ impl MonitorView {
             .border_style(Theme::border());
 
         let lines: Vec<Line> = match &self.models {
-            None => vec![Line::from(Span::styled("...", Style::default().fg(Theme::DIM)))],
+            None => vec![Line::from(Span::styled(
+                "...",
+                Style::default().fg(Theme::DIM),
+            ))],
             Some(m) => {
                 let mut rows: Vec<Line> = Vec::new();
                 for model in &m.chat_models {
@@ -173,7 +251,10 @@ impl MonitorView {
                     ]));
                 }
                 if rows.is_empty() {
-                    rows.push(Line::from(Span::styled("No models found", Style::default().fg(Theme::DIM))));
+                    rows.push(Line::from(Span::styled(
+                        "No models found",
+                        Style::default().fg(Theme::DIM),
+                    )));
                 }
                 rows
             }
@@ -225,10 +306,11 @@ impl MonitorView {
 
 impl View for MonitorView {
     fn render(&self, frame: &mut Frame, area: Rect) {
+        let service_height = if area.width < 80 { 9 } else { 5 };
         let sections = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(5),
+                Constraint::Length(service_height),
                 Constraint::Length(8),
                 Constraint::Min(0),
             ])
@@ -237,12 +319,17 @@ impl View for MonitorView {
         self.render_service_cards(frame, sections[0]);
         self.render_sparkline(frame, sections[1]);
 
+        let bottom_direction = if area.width < 90 {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        };
         let bottom = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(55),
-                Constraint::Percentage(45),
-            ])
+            .direction(bottom_direction)
+            .constraints(match bottom_direction {
+                Direction::Vertical => [Constraint::Percentage(50), Constraint::Percentage(50)],
+                Direction::Horizontal => [Constraint::Percentage(55), Constraint::Percentage(45)],
+            })
             .split(sections[2]);
 
         self.render_models(frame, bottom[0]);
@@ -259,9 +346,11 @@ impl View for MonitorView {
         "System"
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("r", "Refresh data"),
-        ]
+        vec![("r", "Refresh data")]
     }
 }

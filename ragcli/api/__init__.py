@@ -1,3 +1,3 @@
-"""REST API for ragcli - AnythingLLM integration."""
+"""REST API for ragcli."""
 
 __version__ = "2.0.1"

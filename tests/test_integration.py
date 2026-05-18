@@ -87,7 +87,7 @@ def mock_db():
         mock_client.return_value.get_connection.return_value = mock_conn
         mock_client.return_value.close.return_value = None
 
-        with patch('ragcli.core.rag_engine.find_document_by_hash', return_value=None):
+        with patch('ragcli.core.rag_engine.get_document_by_hash', return_value=None):
             with patch('ragcli.core.rag_engine.insert_document') as mock_insert_doc:
                 with patch('ragcli.core.rag_engine.insert_chunks_batch') as mock_insert_batch:
                     mock_insert_doc.return_value = "test-doc-id"

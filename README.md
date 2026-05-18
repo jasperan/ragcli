@@ -129,7 +129,7 @@ Each view has its own keybindings. Press `?` inside any view to see them.
 - **17 database tables**: Documents, chunks, queries, sessions, knowledge graph, traces, feedback, eval, sync
 - **React frontend**: Google-style search, drag-drop upload, animated vector heatmaps
 - **Document processing**: PDF, Markdown, Text with configurable chunking (1000 tokens, 10% overlap)
-- **Deployment**: PyPI (`pip install ragcli`), Docker Compose, standalone binary
+- **Deployment**: PyPI (`pip install oracle-ragcli`), Docker Compose, standalone binary
 
 ![](./img/2.png)
 
@@ -176,28 +176,36 @@ See [Annex A: Detailed Prerequisites](#annex-a-detailed-prerequisites) for links
 ```bash
 git clone https://github.com/jasperan/ragcli.git
 cd ragcli
-pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 ### Usage
 
 ```bash
-python ragcli.py
+ragcli doctor
+ragcli
 ```
 
 ## Docker Compose (Recommended)
 
 Full stack with ragcli API, and Ollama:
 
-Create the .env file
+Create the `.env` file with an Oracle password before starting Compose:
 ```bash
 echo "ORACLE_PASSWORD=your_password" > .env
 ```
 
-Update the config.yaml file with your Oracle DSN
+Copy the config file. Docker Compose injects service-local Oracle and Ollama endpoints into the API container and creates a `RAGCLI` Oracle app user automatically.
 
 ```bash
-docker-compose up -d
+cp config.yaml.example config.yaml
+docker compose up -d
+```
+
+If those host ports are already taken, override them without changing container networking:
+
+```bash
+RAGCLI_API_PORT=18000 ORACLE_HOST_PORT=11522 OLLAMA_HOST_PORT=11436 docker compose up -d
 ```
 
 Pull the Ollama models
@@ -229,17 +237,18 @@ docker run -d -p 8000:8000 -v $(pwd)/config.yaml:/app/config.yaml ragcli
 cp config.yaml.example config.yaml
 # Edit config.yaml: Set oracle DSN/username/password (use ${ENV_VAR} for secrets), ollama endpoint.
 # Export env vars if using: export ORACLE_PASSWORD=yourpass
+ragcli doctor
 ```
 
 2. **Initialize Database** (run once):
 
 ```bash
-python ragcli.py db init # Creates tables and indexes in Oracle
+ragcli db init # Creates tables and indexes in Oracle
 ```
 
 3. **Launch CLI (REPL)**:
 ```bash
-python ragcli.py
+ragcli
 ```
 
    Now has an interactive menu system:
@@ -265,7 +274,7 @@ python ragcli.py
 
 4. **Launch API Server**:
 ```bash
-python ragcli.py api --port 8000
+ragcli api --port 8000
 ```
 
 - API docs: http://localhost:8000/docs
@@ -282,33 +291,34 @@ npm run dev
 
 6. **Functional CLI Example**:
 ```bash
-python ragcli.py upload path/to/doc.pdf
-python ragcli.py ask "Summarize the document" --show-chain
+ragcli upload path/to/doc.pdf
+ragcli ask "Summarize the document" --show-chain
 ```
 
 ## CLI Usage
 
-- **REPL Mode**: `python ragcli.py` → Interactive shell with arrow-key navigation.
+- **REPL Mode**: `ragcli` -> Interactive shell with arrow-key navigation.
   - **Gemini-style Interface**: Rich, colorful, and intuitive TUI.
   - **Interactive File Explorer**: Select files to upload using a navigable directory tree.
   - **Format Validation**: Automatically checks for supported formats (TXT, MD, PDF) and warns if incompatible.
-- **Functional Mode**: `python ragcli.py [options]`.
-- `python ragcli.py upload --recursive folder/` - Upload with progress bars
-- `python ragcli.py ask "query" --docs doc1,doc2 --top-k 3`
-- `python ragcli.py models list` - Show all available Ollama models
-- `python ragcli.py status --verbose` - Detailed vector statistics
-- `python ragcli.py db browse --table DOCUMENTS` - Browse database tables
-- `python ragcli.py db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
-- `python ragcli.py eval synthetic` - Generate synthetic Q&A pairs and evaluate
-- `python ragcli.py eval replay` - Re-run past queries through current pipeline
-- `python ragcli.py eval report` - Display evaluation report
-- `python ragcli.py eval runs` - List all evaluation runs
-- `python ragcli.py sync add /path/to/docs --pattern "*.md"` - Watch a directory
-- `python ragcli.py sync add ~/git/project --type git` - Watch a git repo
-- `python ragcli.py sync list` - List sync sources
-- `python ragcli.py sync status` - Show sync overview
-- `python ragcli.py sync events` - Recent sync events
-- See `python ragcli.py --help` for full options.
+- **Functional Mode**: `ragcli [options]`.
+- `ragcli doctor` - First-run diagnostics for config, services, models, and ports
+- `ragcli upload --recursive folder/` - Upload with progress bars
+- `ragcli ask "query" --docs doc1,doc2 --top-k 3`
+- `ragcli models list` - Show all available Ollama models
+- `ragcli status --verbose` - Detailed vector statistics
+- `ragcli db browse --table DOCUMENTS` - Browse database tables
+- `ragcli db query "SELECT * FROM DOCUMENTS"` - Custom SQL queries
+- `ragcli eval synthetic` - Generate synthetic Q&A pairs and evaluate
+- `ragcli eval replay` - Re-run past queries through current pipeline
+- `ragcli eval report` - Display evaluation report
+- `ragcli eval runs` - List all evaluation runs
+- `ragcli sync add /path/to/docs --pattern "*.md"` - Watch a directory
+- `ragcli sync add ~/git/project --type git` - Watch a git repo
+- `ragcli sync list` - List sync sources
+- `ragcli sync status` - Show sync overview
+- `ragcli sync events` - Recent sync events
+- See `ragcli --help` for full options.
 
 Premium Web Interface The project includes a stunning, minimalist frontend inspired by Google AI Studio.
 
@@ -329,7 +339,7 @@ Premium Web Interface The project includes a stunning, minimalist frontend inspi
 ### API Integration
 
 - **FastAPI Backend**: RESTful API with Swagger documentation at `/docs`
-- **Docker Compose**: One-command deployment with `docker-compose up -d`
+- **Docker Compose**: One-command deployment with `docker compose up -d`
 - **API Endpoints**:
 - `POST /api/documents/upload` - Upload documents
 - `GET /api/documents` - List documents
@@ -355,13 +365,13 @@ Premium Web Interface The project includes a stunning, minimalist frontend inspi
 Edit `config.yaml`:
 ```yaml
 oracle:
-dsn: "localhost:1521/FREEPDB1"
-username: "rag_user"
-password: "${ORACLE_PASSWORD}"
+  dsn: "${ORACLE_DSN:-localhost:1521/FREEPDB1}"
+  username: "${ORACLE_USERNAME:-RAGCLI}"
+  password: "${ORACLE_PASSWORD}"
 
 ollama:
-endpoint: "http://localhost:11434"
-chat_model: "gemma3:270m"
+  endpoint: "${OLLAMA_ENDPOINT:-http://localhost:11434}"
+  chat_model: "${OLLAMA_CHAT_MODEL:-gemma3:270m}"
 ```
 - **api**: Host, port (8000), CORS origins, Swagger docs.
 - **documents**: Chunk size (1000), overlap (10%), max size (100MB).
@@ -388,7 +398,7 @@ Upload documents with real-time progress bars showing:
 
 Example:
 ```bash
-python ragcli.py upload large_document.pdf
+ragcli upload large_document.pdf
 # ... progress bar animation ...
 # Then displays summary:
 # ╭───────────────────────────────────────────────────── Upload Summary ─────────────────────────────────────────────────────╮
@@ -419,7 +429,7 @@ When running `upload` without arguments (or selecting "Ingest" from the menu), r
 
 #### Detailed Status & Monitoring
 ```bash
-python ragcli.py status --verbose
+ragcli status --verbose
 # ragcli Status
 # ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ Component ┃ Status ┃ Details ┃
@@ -437,7 +447,7 @@ python ragcli.py status --verbose
 #### Interactive Database Browser
 
 ```bash
-python ragcli.py db browse --table DOCUMENTS --limit 20
+ragcli db browse --table DOCUMENTS --limit 20
 # DOCUMENTS (Rows 1-5 of 6)
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃ ID ┃ Filename ┃ Format ┃ Size (KB) ┃ Chunks ┃ Tokens ┃ Uploaded ┃
@@ -478,11 +488,11 @@ ragcli now integrates `langchain-oracledb` for enhanced document processing:
 
 A dedicated command group `oracle-test` is available to verify these features:
 ```bash
-python ragcli.py oracle-test all # Run full test suite
-python ragcli.py oracle-test loader /path/to/doc # Test document loader
-python ragcli.py oracle-test splitter --text "..." # Test text splitter
-python ragcli.py oracle-test summary "..." # Test summarization
-python ragcli.py oracle-test embedding "..." # Test embedding generation
+ragcli oracle-test all # Run full test suite
+ragcli oracle-test loader /path/to/doc # Test document loader
+ragcli oracle-test splitter --text "..." # Test text splitter
+ragcli oracle-test summary "..." # Test summarization
+ragcli oracle-test embedding "..." # Test embedding generation
 ```
 
 You can also access the **Test Suite** from the interactive REPL menu (Option 7).

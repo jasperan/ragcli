@@ -1,12 +1,14 @@
-use ratatui::Frame;
+use super::text::{truncate_end, truncate_start, wrap_text};
+use super::View;
+use crate::api::models::QueryResponse;
+use crate::api::stream::SseChunkEvent;
+use crate::theme::Theme;
+use crossterm::event::KeyCode;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use crossterm::event::KeyCode;
-use crate::api::stream::SseChunkEvent;
-use crate::theme::Theme;
-use super::View;
+use ratatui::Frame;
 
 pub struct QueryView {
     pub input: String,
@@ -19,6 +21,11 @@ pub struct QueryView {
     pub ttft_ms: Option<u64>,
     pub model_name: String,
     pub scroll_offset: u16,
+    pub pending_query: Option<(u64, String)>,
+    pub active_query_id: Option<u64>,
+    pub current_query: Option<String>,
+    next_query_id: u64,
+    pub error: Option<String>,
 }
 
 impl QueryView {
@@ -34,6 +41,19 @@ impl QueryView {
             ttft_ms: None,
             model_name: String::from("-"),
             scroll_offset: 0,
+            pending_query: None,
+            active_query_id: None,
+            current_query: None,
+            next_query_id: 1,
+            error: None,
+        }
+    }
+
+    fn archive_current_response(&mut self) {
+        if let Some(query) = self.current_query.take() {
+            if !self.response_text.is_empty() {
+                self.history.push((query, self.response_text.clone()));
+            }
         }
     }
 
@@ -50,9 +70,67 @@ impl QueryView {
     /// Called when streaming completes successfully.
     pub fn finish_stream(&mut self, query: &str) {
         self.streaming = false;
-        if !self.response_text.is_empty() {
-            self.history.push((query.to_string(), self.response_text.clone()));
+        self.active_query_id = None;
+        self.current_query = Some(query.to_string());
+    }
+
+    pub fn take_pending_query(&mut self) -> Option<(u64, String, Option<String>)> {
+        self.pending_query
+            .take()
+            .map(|(request_id, query)| (request_id, query, self.session_id.clone()))
+    }
+
+    pub fn set_query_result(
+        &mut self,
+        request_id: u64,
+        query: String,
+        response: QueryResponse,
+        elapsed_ms: u64,
+    ) -> bool {
+        if self.active_query_id != Some(request_id) {
+            return false;
         }
+
+        let chunks = response
+            .chunks
+            .iter()
+            .map(|chunk| SseChunkEvent {
+                chunk_id: chunk.chunk_id.clone(),
+                document_id: chunk.document_id.clone(),
+                text: chunk.text.clone(),
+                similarity_score: chunk.similarity_score,
+                chunk_number: chunk.chunk_number,
+            })
+            .collect();
+
+        self.response_text = response.response;
+        self.chunks = chunks;
+        self.session_id = response.session_id;
+        self.ttft_ms = Some(elapsed_ms);
+        self.error = None;
+        self.streaming = false;
+        self.active_query_id = None;
+        self.current_query = Some(query);
+        self.input.clear();
+        self.cursor_pos = 0;
+        true
+    }
+
+    pub fn set_query_error(&mut self, request_id: u64, message: String) -> bool {
+        if self.active_query_id != Some(request_id) {
+            return false;
+        }
+
+        self.streaming = false;
+        self.active_query_id = None;
+        self.error = Some(message);
+        true
+    }
+
+    pub fn set_error(&mut self, message: String) {
+        self.streaming = false;
+        self.active_query_id = None;
+        self.error = Some(message);
     }
 
     fn chunk_score_style(score: f64) -> Style {
@@ -62,6 +140,12 @@ impl QueryView {
             Style::default().fg(Theme::WARNING)
         } else {
             Style::default().fg(Theme::DIM)
+        }
+    }
+
+    fn push_wrapped_text(lines: &mut Vec<Line>, text: &str, width: usize, style: Style) {
+        for wrapped in wrap_text(text, width) {
+            lines.push(Line::from(Span::styled(wrapped, style)));
         }
     }
 
@@ -102,7 +186,10 @@ impl QueryView {
         let input_line = Line::from(vec![
             Span::styled("> ", Style::default().fg(Theme::DIM)),
             Span::styled(before_cursor.to_string(), Style::default().fg(Theme::TEXT)),
-            Span::styled(cursor_char, Style::default().bg(Theme::PRIMARY).fg(Color::Black)),
+            Span::styled(
+                cursor_char,
+                Style::default().bg(Theme::PRIMARY).fg(Color::Black),
+            ),
             Span::styled(after_rest, Style::default().fg(Theme::TEXT)),
         ]);
 
@@ -137,22 +224,12 @@ impl QueryView {
                 ),
             ]));
             for resp_line in r.lines() {
-                let mut rem = resp_line;
-                loop {
-                    if rem.is_empty() {
-                        break;
-                    }
-                    let take = rem
-                        .char_indices()
-                        .nth(avail_width)
-                        .map(|(i, _)| i)
-                        .unwrap_or(rem.len());
-                    lines.push(Line::from(Span::styled(
-                        rem[..take].to_string(),
-                        Style::default().fg(Theme::DIM),
-                    )));
-                    rem = &rem[take..];
-                }
+                Self::push_wrapped_text(
+                    &mut lines,
+                    resp_line,
+                    avail_width,
+                    Style::default().fg(Theme::DIM),
+                );
             }
             lines.push(Line::from(Span::styled(
                 "-".repeat(avail_width),
@@ -161,24 +238,19 @@ impl QueryView {
         }
 
         // Current streaming response
-        if !self.response_text.is_empty() || self.streaming {
+        if let Some(error) = &self.error {
+            lines.push(Line::from(Span::styled(
+                format!("Error: {}", error),
+                Style::default().fg(Theme::ERROR),
+            )));
+        } else if !self.response_text.is_empty() || self.streaming {
             for resp_line in self.response_text.lines() {
-                let mut rem = resp_line;
-                loop {
-                    if rem.is_empty() {
-                        break;
-                    }
-                    let take = rem
-                        .char_indices()
-                        .nth(avail_width)
-                        .map(|(i, _)| i)
-                        .unwrap_or(rem.len());
-                    lines.push(Line::from(Span::styled(
-                        rem[..take].to_string(),
-                        Style::default().fg(Theme::TEXT),
-                    )));
-                    rem = &rem[take..];
-                }
+                Self::push_wrapped_text(
+                    &mut lines,
+                    resp_line,
+                    avail_width,
+                    Style::default().fg(Theme::TEXT),
+                );
             }
             if self.streaming {
                 lines.push(Line::from(Span::styled(
@@ -230,30 +302,15 @@ impl QueryView {
             } else {
                 for (i, chunk) in self.chunks.iter().enumerate() {
                     let score_pct = (chunk.similarity_score * 100.0) as u32;
-                    let fname = if chunk.document_id.len() > 20 {
-                        format!("...{}", &chunk.document_id[chunk.document_id.len() - 20..])
-                    } else {
-                        chunk.document_id.clone()
-                    };
+                    let fname = truncate_start(&chunk.document_id, 23);
                     let header = format!("#{} {}  {}%", i + 1, fname, score_pct);
                     lines.push(Line::from(vec![Span::styled(
                         header,
                         Self::chunk_score_style(chunk.similarity_score)
                             .add_modifier(Modifier::BOLD),
                     )]));
-                    let preview = chunk.text.replace('\n', " ");
-                    let take = preview
-                        .char_indices()
-                        .nth(avail_width)
-                        .map(|(i, _)| i)
-                        .unwrap_or(preview.len());
-                    let preview_short = if preview.len() > take {
-                        format!("{}...", &preview[..take.saturating_sub(3)])
-                    } else {
-                        preview[..take].to_string()
-                    };
                     lines.push(Line::from(Span::styled(
-                        preview_short,
+                        truncate_end(&chunk.text.replace('\n', " "), avail_width),
                         Style::default().fg(Theme::DIM),
                     )));
                     lines.push(Line::from(""));
@@ -277,13 +334,7 @@ impl QueryView {
             let session_str = self
                 .session_id
                 .as_deref()
-                .map(|s| {
-                    if s.len() > 18 {
-                        format!("...{}", &s[s.len() - 18..])
-                    } else {
-                        s.to_string()
-                    }
-                })
+                .map(|s| truncate_start(s, 21))
                 .unwrap_or_else(|| "none".to_string());
 
             let ttft_str = self
@@ -314,9 +365,17 @@ impl QueryView {
 
 impl View for QueryView {
     fn render(&self, frame: &mut Frame, area: Rect) {
+        let direction = if area.width < 100 {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        };
         let panes = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+            .direction(direction)
+            .constraints(match direction {
+                Direction::Vertical => [Constraint::Percentage(60), Constraint::Percentage(40)],
+                Direction::Horizontal => [Constraint::Percentage(60), Constraint::Percentage(40)],
+            })
             .split(area);
 
         self.render_left(frame, panes[0]);
@@ -358,8 +417,16 @@ impl View for QueryView {
                 }
             }
             KeyCode::Enter => {
-                if !self.input.is_empty() && !self.streaming {
+                let query = self.input.trim().to_string();
+                if !query.is_empty() && !self.streaming {
+                    self.archive_current_response();
+                    let request_id = self.next_query_id;
+                    self.next_query_id = self.next_query_id.saturating_add(1);
                     self.streaming = true;
+                    self.pending_query = Some((request_id, query.clone()));
+                    self.active_query_id = Some(request_id);
+                    self.current_query = Some(query);
+                    self.error = None;
                     self.response_text.clear();
                     self.chunks.clear();
                     self.scroll_offset = 0;
@@ -369,9 +436,15 @@ impl View for QueryView {
             KeyCode::Esc => {
                 if self.streaming {
                     self.streaming = false;
+                    self.pending_query = None;
+                    self.active_query_id = None;
+                    self.current_query = None;
+                    self.response_text.clear();
+                    self.chunks.clear();
                 } else {
                     self.input.clear();
                     self.cursor_pos = 0;
+                    self.error = None;
                 }
             }
             KeyCode::Up => {
@@ -388,6 +461,10 @@ impl View for QueryView {
         "Query"
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
         vec![
             ("Enter", "Submit query"),
@@ -395,5 +472,62 @@ impl View for QueryView {
             ("Ctrl+N", "New session"),
             ("Up/Down", "Scroll response"),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::models::QueryResponse;
+    use crossterm::event::KeyCode;
+
+    fn query_response(text: &str) -> QueryResponse {
+        QueryResponse {
+            response: text.to_string(),
+            chunks: Vec::new(),
+            query_embedding: None,
+            metrics: serde_json::json!({}),
+            session_id: None,
+            trace_id: None,
+        }
+    }
+
+    #[test]
+    fn successful_query_stays_current_until_next_query() {
+        let mut view = QueryView::new();
+        view.input = "first".to_string();
+        view.cursor_pos = view.input.len();
+        view.handle_key(KeyCode::Enter);
+        let (request_id, query, _) = view.take_pending_query().expect("pending query");
+
+        assert!(view.set_query_result(request_id, query, query_response("answer"), 42));
+
+        assert_eq!(view.response_text, "answer");
+        assert!(view.history.is_empty());
+
+        view.input = "second".to_string();
+        view.cursor_pos = view.input.len();
+        view.handle_key(KeyCode::Enter);
+
+        assert_eq!(
+            view.history,
+            vec![("first".to_string(), "answer".to_string())]
+        );
+        assert!(view.response_text.is_empty());
+    }
+
+    #[test]
+    fn cancelled_query_result_is_ignored() {
+        let mut view = QueryView::new();
+        view.input = "slow".to_string();
+        view.cursor_pos = view.input.len();
+        view.handle_key(KeyCode::Enter);
+        let (request_id, query, _) = view.take_pending_query().expect("pending query");
+
+        view.handle_key(KeyCode::Esc);
+
+        assert!(!view.set_query_result(request_id, query, query_response("stale"), 42));
+        assert!(view.response_text.is_empty());
+        assert!(view.history.is_empty());
     }
 }

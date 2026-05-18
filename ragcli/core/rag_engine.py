@@ -7,7 +7,12 @@ from typing import Dict, List, Any, Optional
 from .document_processor import preprocess_document, chunk_text, get_document_metadata
 from .embedding import generate_embedding, generate_response
 from .similarity_search import search_chunks as _search_chunks_internal
-from ..database.vector_ops import insert_document, insert_chunks_batch, log_query, find_document_by_hash
+from ..database.vector_ops import (
+    insert_document,
+    insert_chunks_batch,
+    log_query,
+    get_document_by_hash,
+)
 from ..database.oracle_client import OracleClient
 from ..config.config_manager import load_config
 from ..memory.session import SessionManager
@@ -64,18 +69,16 @@ def upload_document(file_path: str, config: Optional[dict] = None, progress=None
         # Deduplication: check content hash before expensive embedding
         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
         try:
-            existing_id = find_document_by_hash(conn, content_hash)
-        except Exception:
-            existing_id = None  # column may not exist yet; skip dedup
-        if existing_id:
+            existing_doc = get_document_by_hash(conn, content_hash)
+        except Exception as exc:
+            logger.debug("Document dedup lookup skipped: %s", exc)
+            existing_doc = None
+
+        if existing_doc:
+            existing_id = existing_doc['document_id']
             logger.info(f"Duplicate detected: {path.name} matches document {existing_id}")
-            if conn: conn.close()
-            client.close()
             return {
-                'document_id': existing_id,
-                'filename': path.name,
-                'file_format': file_format,
-                'file_size_bytes': file_size,
+                **existing_doc,
                 'duplicate': True,
                 'duplicate_of': existing_id,
                 'upload_time_ms': (time.perf_counter() - start_time) * 1000,

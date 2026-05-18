@@ -148,9 +148,9 @@ class TestHealthEndpoint:
 class TestDocumentDedup:
 
     @patch('ragcli.core.rag_engine.OracleClient')
-    @patch('ragcli.core.rag_engine.find_document_by_hash')
+    @patch('ragcli.core.rag_engine.get_document_by_hash')
     @patch('ragcli.core.rag_engine.preprocess_document')
-    def test_duplicate_detected(self, mock_preprocess, mock_find, mock_client, tmp_path):
+    def test_duplicate_detected(self, mock_preprocess, mock_get_doc, mock_client, tmp_path):
         """Uploading duplicate content should return existing doc_id."""
         f = tmp_path / "dup.txt"
         f.write_text("same content")
@@ -164,7 +164,18 @@ class TestDocumentDedup:
 
         mock_client.return_value.get_connection.return_value = MagicMock()
         mock_preprocess.return_value = ("same content", False)
-        mock_find.return_value = "existing-doc-id"
+        mock_get_doc.return_value = {
+            "document_id": "existing-doc-id",
+            "filename": "dup.txt",
+            "file_format": "txt",
+            "file_size_bytes": 12,
+            "extracted_text_size_bytes": 12,
+            "chunk_count": 1,
+            "total_tokens": 2,
+            "embedding_dimension": 768,
+            "approximate_embedding_size_bytes": 3072,
+            "ocr_processed": False,
+        }
 
         from ragcli.core.rag_engine import upload_document
         result = upload_document(str(f), config)
@@ -174,7 +185,7 @@ class TestDocumentDedup:
         assert result['document_id'] == "existing-doc-id"
 
     @patch('ragcli.core.rag_engine.OracleClient')
-    @patch('ragcli.core.rag_engine.find_document_by_hash')
+    @patch('ragcli.core.rag_engine.get_document_by_hash')
     @patch('ragcli.core.rag_engine.insert_chunks_batch')
     @patch('ragcli.core.rag_engine.insert_document')
     @patch('ragcli.core.rag_engine.get_document_metadata')
@@ -182,7 +193,7 @@ class TestDocumentDedup:
     @patch('ragcli.core.rag_engine.preprocess_document')
     @patch('ragcli.core.rag_engine.generate_embedding')
     def test_new_doc_proceeds(self, mock_emb, mock_preprocess, mock_chunk, mock_meta,
-                               mock_insert_doc, mock_insert_batch, mock_find, mock_client, tmp_path):
+                               mock_insert_doc, mock_insert_batch, mock_get_doc, mock_client, tmp_path):
         """Non-duplicate should proceed normally."""
         f = tmp_path / "new.txt"
         f.write_text("new content")
@@ -196,7 +207,7 @@ class TestDocumentDedup:
 
         mock_client.return_value.get_connection.return_value = MagicMock()
         mock_preprocess.return_value = ("new content", False)
-        mock_find.return_value = None  # no duplicate
+        mock_get_doc.return_value = None  # no duplicate
         mock_chunk.return_value = [{'text': 'new content', 'token_count': 2, 'char_count': 11}]
         mock_meta.return_value = {'chunk_count': 1, 'total_tokens': 2, 'extracted_text_size_bytes': 11}
         mock_insert_doc.return_value = "new-doc-id"

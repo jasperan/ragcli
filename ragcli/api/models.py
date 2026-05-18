@@ -37,7 +37,7 @@ class DocumentListResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     """Request for RAG query."""
-    query: str = Field(..., min_length=1, description="The question to ask")
+    query: str = Field(..., min_length=1, max_length=5000, description="The question to ask")
     document_ids: Optional[List[str]] = Field(None, description="Filter by specific document IDs")
     top_k: Optional[int] = Field(5, ge=1, le=50, description="Number of chunks to retrieve")
     min_similarity: Optional[float] = Field(0.5, ge=0.0, le=1.0, description="Minimum similarity score")
@@ -143,7 +143,7 @@ class EmbeddingGraphResponse(BaseModel):
 
 class GraphQueryRequest(BaseModel):
     """Request for graph with query node."""
-    query: str = Field(..., min_length=1, description="Query text to embed and add as node")
+    query: str = Field(..., min_length=1, max_length=5000, description="Query text to embed and add as node")
     min_similarity: float = Field(0.5, ge=0.0, le=1.0)
     top_k: int = Field(10, ge=1, le=50)
     document_ids: Optional[List[str]] = None

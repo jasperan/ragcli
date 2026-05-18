@@ -1,40 +1,50 @@
 #!/usr/bin/env python3
-"""Test script to connect to Oracle DB and read from DOCUMENTS table."""
+"""Manual Oracle smoke test.
 
-import sys
-import os
+This file is named like a pytest module, so keep all live database work behind
+``main()``. That lets ``pytest`` collect the repository on machines without a
+running Oracle service.
+"""
 
-# Add current directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from __future__ import annotations
 
-try:
-    from ragcli.config.config_manager import load_config
-    from ragcli.database.oracle_client import OracleClient
+from ragcli.config.config_manager import load_config
+from ragcli.database.oracle_client import OracleClient
 
-    print("Loading config...")
-    config = load_config()
-    print("Config loaded successfully.")
 
-    print("Creating OracleClient...")
-    client = OracleClient(config)
-    print("OracleClient created.")
+def main() -> int:
+    client: OracleClient | None = None
+    cursor = None
+    try:
+        print("Loading config...")
+        config = load_config()
+        print("Config loaded successfully.")
 
-    print("Getting connection...")
-    conn = client.get_connection()
-    print("Connection acquired.")
+        print("Creating OracleClient...")
+        client = OracleClient(config)
+        print("OracleClient created.")
 
-    cursor = conn.cursor()
+        print("Getting connection...")
+        conn = client.get_connection()
+        print("Connection acquired.")
 
-    # Test read from DOCUMENTS table
-    print("Executing query...")
-    cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
-    count = cursor.fetchone()[0]
-    print(f"SUCCESS: DOCUMENTS table has {count} rows.")
+        cursor = conn.cursor()
 
-    cursor.close()
-    client.close()
-    print("Connection closed. Test completed successfully.")
+        print("Executing query...")
+        cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
+        count = cursor.fetchone()[0]
+        print(f"SUCCESS: DOCUMENTS table has {count} rows.")
+        print("Connection closed. Test completed successfully.")
+        return 0
+    except Exception as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if client is not None:
+            client.close()
 
-except Exception as e:
-    print(f"ERROR: {e}")
-    sys.exit(1)
+
+if __name__ == "__main__":
+    raise SystemExit(main())

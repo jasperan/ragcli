@@ -20,7 +20,9 @@ pub enum SseEvent {
 
 /// Parse SSE frames from a reqwest response stream.
 /// Returns a channel receiver that emits parsed events.
-pub fn parse_sse_stream(response: reqwest::Response) -> tokio::sync::mpsc::UnboundedReceiver<SseEvent> {
+pub fn parse_sse_stream(
+    response: reqwest::Response,
+) -> tokio::sync::mpsc::UnboundedReceiver<SseEvent> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     tokio::spawn(async move {
         let mut stream = response.bytes_stream();
@@ -42,15 +44,15 @@ pub fn parse_sse_stream(response: reqwest::Response) -> tokio::sync::mpsc::Unbou
                 }
 
                 let evt = match event_type.as_str() {
-                    "chunks" => {
-                        match serde_json::from_str(&data) {
-                            Ok(chunks) => SseEvent::Chunks(chunks),
-                            Err(e) => SseEvent::Error(e.to_string()),
-                        }
-                    }
+                    "chunks" => match serde_json::from_str(&data) {
+                        Ok(chunks) => SseEvent::Chunks(chunks),
+                        Err(e) => SseEvent::Error(e.to_string()),
+                    },
                     "token" => {
                         #[derive(Deserialize)]
-                        struct TokenData { token: String }
+                        struct TokenData {
+                            token: String,
+                        }
                         match serde_json::from_str::<TokenData>(&data) {
                             Ok(t) => SseEvent::Token(t.token),
                             Err(e) => SseEvent::Error(e.to_string()),

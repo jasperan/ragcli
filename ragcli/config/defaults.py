@@ -54,7 +54,7 @@ DEFAULT_CONFIG = {
         "debug": False,
     },
     "api": {
-        "host": "0.0.0.0",
+        "host": "127.0.0.1",
         "port": 8000,
         "cors_origins": ["http://localhost:5173", "http://localhost:3000"],
         "enable_swagger": True,

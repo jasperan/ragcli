@@ -1,12 +1,12 @@
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
-use ratatui::text::{Line, Span};
-use ratatui::style::{Modifier, Style};
-use crossterm::event::KeyCode;
-use rattles::presets::prelude as spinners;
-use crate::theme::Theme;
 use super::View;
+use crate::theme::Theme;
+use crossterm::event::KeyCode;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::Frame;
+use rattles::presets::prelude as spinners;
 
 #[derive(Clone, PartialEq)]
 pub enum AgentStatus {
@@ -46,7 +46,9 @@ impl AgentPane {
     pub fn status_style(&self) -> Style {
         match self.status {
             AgentStatus::Pending => Style::default().fg(Theme::DIM),
-            AgentStatus::Running => Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD),
+            AgentStatus::Running => Style::default()
+                .fg(Theme::PRIMARY)
+                .add_modifier(Modifier::BOLD),
             AgentStatus::Complete => Style::default().fg(Theme::SUCCESS),
             AgentStatus::Failed => Style::default().fg(Theme::ERROR),
         }
@@ -135,7 +137,10 @@ impl AgentsView {
         frame.render_widget(block, area);
 
         let lines: Vec<Line> = if matches!(agent.status, AgentStatus::Pending) {
-            vec![Line::from(Span::styled("(waiting)", Style::default().fg(Theme::DIM)))]
+            vec![Line::from(Span::styled(
+                "(waiting)",
+                Style::default().fg(Theme::DIM),
+            ))]
         } else if agent.output.is_empty() {
             if matches!(agent.status, AgentStatus::Running) {
                 let frame = spinners::waverows().current_frame();
@@ -147,7 +152,11 @@ impl AgentsView {
                 vec![Line::from("")]
             }
         } else {
-            agent.output.iter().map(|s| Line::from(Span::styled(s.as_str(), Style::default().fg(Theme::TEXT)))).collect()
+            agent
+                .output
+                .iter()
+                .map(|s| Line::from(Span::styled(s.as_str(), Style::default().fg(Theme::TEXT))))
+                .collect()
         };
 
         let duration_line = if let Some(ms) = agent.duration_ms {
@@ -189,9 +198,15 @@ impl AgentsView {
             Line::from(vec![
                 Span::styled("Pipeline: 4 agents", Style::default().fg(Theme::DIM)),
                 Span::styled(" │ ", Style::default().fg(Theme::SECONDARY)),
-                Span::styled(format!("Stage {}/4", stage_num), Style::default().fg(Theme::PRIMARY)),
+                Span::styled(
+                    format!("Stage {}/4", stage_num),
+                    Style::default().fg(Theme::PRIMARY),
+                ),
                 Span::styled(" │ ", Style::default().fg(Theme::SECONDARY)),
-                Span::styled(format!("Elapsed: {:.1}s", elapsed_s), Style::default().fg(Theme::DIM)),
+                Span::styled(
+                    format!("Elapsed: {:.1}s", elapsed_s),
+                    Style::default().fg(Theme::DIM),
+                ),
             ]),
         ];
 
@@ -269,6 +284,10 @@ impl View for AgentsView {
 
     fn name(&self) -> &str {
         "Agents"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn keybindings(&self) -> Vec<(&'static str, &'static str)> {

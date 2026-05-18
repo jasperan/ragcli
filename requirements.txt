@@ -5,13 +5,11 @@ rich
 questionary
 oracledb
 pyyaml
-aiohttp
 requests
 plotly
-matplotlib
-langchain-community
 langchain-oracledb
 tiktoken
+numpy
 umap-learn
 scikit-learn
 psutil

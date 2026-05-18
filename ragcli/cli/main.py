@@ -15,6 +15,7 @@ from .commands.models import app as models_app
 from .commands.oracle_test import app as oracle_test_app
 from .commands.eval_cmd import app as eval_app
 from .commands.sync_cmd import app as sync_app
+from .commands.doctor import doctor as doctor_cmd
 from ..config.config_manager import load_config
 
 # Import commands for direct execution
@@ -43,14 +44,15 @@ from .commands.status import status as status_cmd
 app.command(name="upload")(upload_cmd)
 app.command(name="ask")(ask_cmd)
 app.command(name="status")(status_cmd)
+app.command(name="doctor")(doctor_cmd)
 
 @app.command()
 def api(
-    host: str = typer.Option("0.0.0.0", "--host", "-h"),
+    host: str = typer.Option("127.0.0.1", "--host", "-h"),
     port: int = typer.Option(8000, "--port", "-p"),
     reload: bool = typer.Option(False, "--reload")
 ):
-    """Launch the FastAPI server for AnythingLLM integration."""
+    """Launch the ragcli FastAPI server."""
     from ragcli.api.server import start_server
     console.print(f"[cyan]Starting ragcli API server on {host}:{port}[/cyan]")
     console.print(f"[cyan]API docs available at: http://{host}:{port}/docs[/cyan]")

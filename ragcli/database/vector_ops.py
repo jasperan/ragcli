@@ -15,15 +15,37 @@ def _build_doc_id_binds(document_ids: List[str]) -> Tuple[Dict[str, str], str]:
     placeholders = ",".join(f":d{i}" for i in range(len(document_ids)))
     return binds, placeholders
 
-def find_document_by_hash(conn: oracledb.Connection, content_hash: str) -> Optional[str]:
-    """Check if a document with this content hash already exists. Returns doc_id or None."""
+def get_document_by_hash(conn: oracledb.Connection, content_hash: str) -> Optional[Dict[str, Any]]:
+    """Return existing document metadata for a content hash."""
     with conn.cursor() as cursor:
         cursor.execute(
-            "SELECT document_id FROM DOCUMENTS WHERE content_hash = :h",
-            {"h": content_hash}
+            """
+            SELECT document_id, filename, file_format, file_size_bytes,
+                   extracted_text_size_bytes, chunk_count, total_tokens,
+                   embedding_dimension, approximate_embedding_size_bytes,
+                   ocr_processed
+            FROM DOCUMENTS
+            WHERE content_hash = :h
+            """,
+            {"h": content_hash},
         )
         row = cursor.fetchone()
-        return row[0] if row else None
+
+    if not row:
+        return None
+
+    return {
+        "document_id": row[0],
+        "filename": row[1],
+        "file_format": str(row[2]).lower(),
+        "file_size_bytes": row[3],
+        "extracted_text_size_bytes": row[4],
+        "chunk_count": row[5],
+        "total_tokens": row[6],
+        "embedding_dimension": row[7],
+        "approximate_embedding_size_bytes": row[8],
+        "ocr_processed": row[9] == "Y",
+    }
 
 
 def insert_document(

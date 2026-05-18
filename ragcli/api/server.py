@@ -1,4 +1,4 @@
-"""FastAPI server for ragcli - AnythingLLM integration."""
+"""FastAPI server for ragcli."""
 
 import os
 import tempfile
@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 
 from ragcli.config.config_manager import load_config
+from ragcli.config.defaults import DEFAULT_CONFIG
 from ragcli.core.rag_engine import upload_document, ask_query
 from ragcli.core.ollama_manager import (
     list_available_models
@@ -166,7 +167,9 @@ app = FastAPI(
 app.add_middleware(RateLimitMiddleware)
 
 # CORS middleware — only enable credentials when origins are explicitly specified
-cors_origins = config.get('api', {}).get('cors_origins', ["*"])
+cors_origins = config.get('api', {}).get('cors_origins')
+if cors_origins is None:
+    cors_origins = DEFAULT_CONFIG['api']['cors_origins']
 allow_credentials = "*" not in cors_origins
 app.add_middleware(
     CORSMiddleware,
@@ -261,26 +264,23 @@ async def upload_document_endpoint(file: UploadFile = File(...)):
 
         # Read file in chunks to enforce size limit before consuming all memory
         max_size = config.get('documents', {}).get('max_file_size_mb', 100) * 1024 * 1024
-        suffix = os.path.splitext(safe_filename)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-            bytes_written = 0
-            while True:
-                chunk = await file.read(1024 * 1024)  # 1MB at a time
-                if not chunk:
-                    break
-                bytes_written += len(chunk)
-                if bytes_written > max_size:
-                    tmp_file.close()
-                    os.unlink(tmp_file.name)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"File too large (max {config.get('documents', {}).get('max_file_size_mb', 100)}MB)"
-                    )
-                tmp_file.write(chunk)
-            tmp_path = tmp_file.name
-
-        # Process document
+        temp_dir = tempfile.TemporaryDirectory()
+        tmp_path = os.path.join(temp_dir.name, safe_filename)
         try:
+            with open(tmp_path, "wb") as tmp_file:
+                bytes_written = 0
+                while True:
+                    chunk = await file.read(1024 * 1024)  # 1MB at a time
+                    if not chunk:
+                        break
+                    bytes_written += len(chunk)
+                    if bytes_written > max_size:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"File too large (max {config.get('documents', {}).get('max_file_size_mb', 100)}MB)"
+                        )
+                    tmp_file.write(chunk)
+
             result = upload_document(tmp_path, config)
 
             return DocumentUploadResponse(
@@ -293,9 +293,7 @@ async def upload_document_endpoint(file: UploadFile = File(...)):
                 upload_time_ms=result['upload_time_ms']
             )
         finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            temp_dir.cleanup()
 
     except HTTPException:
         raise
@@ -1044,7 +1042,11 @@ async def get_entity_neighbors(entity_id: str):
 # --- Document Chunks / Latency Endpoints ---
 
 @app.get("/api/documents/{doc_id}/chunks", response_model=ChunkListResponse)
-async def get_document_chunks(doc_id: str, limit: int = 100, offset: int = 0):
+async def get_document_chunks(
+    doc_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
     """List chunks for a document with pagination."""
     conn = get_db_client().get_connection()
     try:
@@ -1072,7 +1074,7 @@ async def get_document_chunks(doc_id: str, limit: int = 100, offset: int = 0):
 
 
 @app.get("/api/stats/latency", response_model=LatencyResponse)
-async def get_latency_stats(limit: int = 50):
+async def get_latency_stats(limit: int = Query(50, ge=1, le=1000)):
     """Get recent query latency data points."""
     conn = get_db_client().get_connection()
     try:
@@ -1096,7 +1098,7 @@ async def get_latency_stats(limit: int = 50):
         conn.close()
 
 
-def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
+def start_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
     """Start the FastAPI server."""
     uvicorn.run(
         "ragcli.api.server:app",

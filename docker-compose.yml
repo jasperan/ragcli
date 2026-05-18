@@ -6,14 +6,19 @@ services:
       dockerfile: Dockerfile
     container_name: ragcli-api
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${RAGCLI_API_PORT:-8000}:8000"
     environment:
-      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - ORACLE_USERNAME=${ORACLE_USERNAME:-RAGCLI}
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD:?set ORACLE_PASSWORD}
+      - ORACLE_DSN=${ORACLE_DSN:-oracle-free:1521/FREEPDB1}
+      - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-gemma3:270m}
     volumes:
       - ./config.yaml:/app/config.yaml
       - ./logs:/app/logs
       - ragcli-data:/app/data
-    command: python -m ragcli.api.server
+    command: ragcli api --host 0.0.0.0 --port 8000
     networks:
       - ragcli-network
     depends_on:
@@ -23,7 +28,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=5).read()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -35,16 +40,19 @@ services:
     image: container-registry.oracle.com/database/free:latest-lite
     container_name: oracle-free
     ports:
-      - "1522:1521"
+      - "127.0.0.1:${ORACLE_HOST_PORT:-1522}:1521"
     environment:
-      - ORACLE_PWD=${ORACLE_PASSWORD:-Welcome12345*}
+      - ORACLE_PWD=${ORACLE_PASSWORD:?set ORACLE_PASSWORD}
+      - ORACLE_APP_USERNAME=${ORACLE_USERNAME:-RAGCLI}
+      - ORACLE_APP_PASSWORD=${ORACLE_PASSWORD:?set ORACLE_PASSWORD}
     volumes:
       - oracle-data:/opt/oracle/oradata
+      - ./docker/oracle/startup:/opt/oracle/scripts/startup:ro
     networks:
       - ragcli-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "sh", "-c", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s ADMIN/$${ORACLE_PWD}@localhost:1521/FREEPDB1"]
+      test: ["CMD", "sh", "-c", "printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\\nSELECT 1 FROM DUAL;\\nEXIT\\n' | sqlplus -L -s $${ORACLE_APP_USERNAME}/$${ORACLE_APP_PASSWORD}@localhost:1521/FREEPDB1"]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -55,7 +63,7 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     ports:
-      - "11435:11434"
+      - "127.0.0.1:${OLLAMA_HOST_PORT:-11435}:11434"
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -75,10 +83,6 @@ volumes:
     driver: local
   oracle-data:
     driver: local
-  anythingllm-storage:
-    driver: local
-  anythingllm-env:
-    driver: local
   ollama-data:
     driver: local
 
@@ -88,9 +92,10 @@ networks:
     driver: bridge
 
 # Usage:
-# 1. Create .env file with ORACLE_PASSWORD=your_password
-# 2. Update config.yaml with Oracle DSN and credentials
-# 3. Run: docker-compose up -d
+# 1. Create .env with ORACLE_PASSWORD=your_password
+# 2. For local services, config.yaml defaults to localhost. In Compose, env vars above point the API at oracle-free and ollama.
+# 3. Run: docker compose up -d. Oracle startup creates the RAGCLI app user automatically.
+#    If ports conflict, set RAGCLI_API_PORT, ORACLE_HOST_PORT, or OLLAMA_HOST_PORT.
 # 4. Pull models: docker exec ollama ollama pull nomic-embed-text
-# 5. Access AnythingLLM: http://localhost:3001
-# 6. Access API docs: http://localhost:8000/docs
+# 5. Access API docs: http://localhost:8000/docs
+# 6. Run diagnostics in the app container: docker compose exec ragcli-api ragcli doctor

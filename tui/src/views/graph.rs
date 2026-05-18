@@ -1,13 +1,13 @@
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::style::{Style, Modifier};
-use ratatui::buffer::Buffer;
-use crossterm::event::KeyCode;
-use crate::theme::Theme;
-use crate::api::models::{KgEntity, KgRelationship};
-use crate::widgets::graph::{ForceLayout, GraphNode, GraphEdge};
 use super::View;
+use crate::api::models::{KgEntity, KgRelationship};
+use crate::theme::Theme;
+use crate::widgets::graph::{ForceLayout, GraphEdge, GraphNode};
+use crossterm::event::KeyCode;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Modifier, Style};
+use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::Frame;
 
 pub struct GraphView {
     pub entities: Vec<KgEntity>,
@@ -32,22 +32,34 @@ impl GraphView {
         }
     }
 
-    pub fn load(&mut self, entities: Vec<KgEntity>, relationships: Vec<KgRelationship>, area_w: f64, area_h: f64) {
-        let nodes: Vec<GraphNode> = entities.iter().map(|e| GraphNode {
-            id: e.entity_id.clone(),
-            label: e.entity_name.clone(),
-            node_type: e.entity_type.clone(),
-            x: area_w / 2.0,
-            y: area_h / 2.0,
-            vx: 0.0,
-            vy: 0.0,
-        }).collect();
+    pub fn load(
+        &mut self,
+        entities: Vec<KgEntity>,
+        relationships: Vec<KgRelationship>,
+        area_w: f64,
+        area_h: f64,
+    ) {
+        let nodes: Vec<GraphNode> = entities
+            .iter()
+            .map(|e| GraphNode {
+                id: e.entity_id.clone(),
+                label: e.entity_name.clone(),
+                node_type: e.entity_type.clone(),
+                x: area_w / 2.0,
+                y: area_h / 2.0,
+                vx: 0.0,
+                vy: 0.0,
+            })
+            .collect();
 
-        let edges: Vec<GraphEdge> = relationships.iter().map(|r| GraphEdge {
-            source: r.source_id.clone(),
-            target: r.target_id.clone(),
-            label: r.rel_type.clone(),
-        }).collect();
+        let edges: Vec<GraphEdge> = relationships
+            .iter()
+            .map(|r| GraphEdge {
+                source: r.source_id.clone(),
+                target: r.target_id.clone(),
+                label: r.rel_type.clone(),
+            })
+            .collect();
 
         self.entities = entities;
         self.relationships = relationships;
@@ -62,7 +74,8 @@ impl GraphView {
     }
 
     fn edge_count_for(&self, entity_id: &str) -> usize {
-        self.relationships.iter()
+        self.relationships
+            .iter()
             .filter(|r| r.source_id == entity_id || r.target_id == entity_id)
             .count()
     }
@@ -107,21 +120,35 @@ impl GraphView {
         let h = area.height as f64;
 
         // Build a position map for edge drawing
-        let pos: Vec<(u16, u16)> = self.layout.nodes.iter().map(|n| {
-            let col = (n.x / w * (area.width as f64)).clamp(0.0, (area.width - 1) as f64) as u16;
-            let row = (n.y / h * (area.height as f64)).clamp(0.0, (area.height - 1) as f64) as u16;
-            (area.left() + col, area.top() + row)
-        }).collect();
+        let pos: Vec<(u16, u16)> = self
+            .layout
+            .nodes
+            .iter()
+            .map(|n| {
+                let col =
+                    (n.x / w * (area.width as f64)).clamp(0.0, (area.width - 1) as f64) as u16;
+                let row =
+                    (n.y / h * (area.height as f64)).clamp(0.0, (area.height - 1) as f64) as u16;
+                (area.left() + col, area.top() + row)
+            })
+            .collect();
 
         // Map node id -> index
         use std::collections::HashMap;
-        let idx_map: HashMap<&str, usize> = self.layout.nodes.iter().enumerate()
+        let idx_map: HashMap<&str, usize> = self
+            .layout
+            .nodes
+            .iter()
+            .enumerate()
             .map(|(i, n)| (n.id.as_str(), i))
             .collect();
 
         // Draw edges first (so nodes paint over them)
         for edge in &self.layout.edges {
-            if let (Some(&si), Some(&ti)) = (idx_map.get(edge.source.as_str()), idx_map.get(edge.target.as_str())) {
+            if let (Some(&si), Some(&ti)) = (
+                idx_map.get(edge.source.as_str()),
+                idx_map.get(edge.target.as_str()),
+            ) {
                 let (sx, sy) = pos[si];
                 let (tx, ty) = pos[ti];
                 let style = Style::default().fg(ratatui::style::Color::DarkGray);
@@ -145,9 +172,17 @@ impl GraphView {
                 // Corner where they meet
                 if tx < area.right() && sy < area.bottom() {
                     let corner = if sx <= tx {
-                        if sy <= ty { "┐" } else { "┘" }
+                        if sy <= ty {
+                            "┐"
+                        } else {
+                            "┘"
+                        }
                     } else {
-                        if sy <= ty { "┌" } else { "└" }
+                        if sy <= ty {
+                            "┌"
+                        } else {
+                            "└"
+                        }
                     };
                     buf[(tx, sy)].set_symbol(corner).set_style(style);
                 }
@@ -167,7 +202,11 @@ impl GraphView {
 
             // Truncate label to available width
             let avail = (area.right().saturating_sub(col)) as usize;
-            let display = if label.len() > avail { &label[..avail.min(label.len())] } else { &label };
+            let display = if label.len() > avail {
+                &label[..avail.min(label.len())]
+            } else {
+                &label
+            };
             for (ci, ch) in display.chars().enumerate() {
                 let x = col + ci as u16;
                 if x < area.right() && row < area.bottom() {
@@ -205,10 +244,7 @@ impl GraphView {
 impl View for GraphView {
     fn render(&self, frame: &mut Frame, area: Rect) {
         // Split: graph canvas + 3-line detail strip
-        let chunks = Layout::vertical([
-            Constraint::Min(5),
-            Constraint::Length(3),
-        ]).split(area);
+        let chunks = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(area);
 
         let canvas_area = chunks[0];
         let detail_area = chunks[1];
@@ -243,7 +279,12 @@ impl View for GraphView {
                     self.search_query.push(c);
                     // Find first entity matching query
                     let q = self.search_query.to_lowercase();
-                    if let Some(idx) = self.layout.nodes.iter().position(|n| n.label.to_lowercase().contains(&q)) {
+                    if let Some(idx) = self
+                        .layout
+                        .nodes
+                        .iter()
+                        .position(|n| n.label.to_lowercase().contains(&q))
+                    {
                         self.focused = idx;
                     }
                 }
@@ -253,10 +294,10 @@ impl View for GraphView {
         }
 
         match key {
-            KeyCode::Left  => self.move_focus(-1, 0),
+            KeyCode::Left => self.move_focus(-1, 0),
             KeyCode::Right => self.move_focus(1, 0),
-            KeyCode::Up    => self.move_focus(0, -1),
-            KeyCode::Down  => self.move_focus(0, 1),
+            KeyCode::Up => self.move_focus(0, -1),
+            KeyCode::Down => self.move_focus(0, 1),
             KeyCode::Enter => {
                 if let Some(e) = self.focused_entity() {
                     self.expansion_stack.push(e.entity_id.clone());
@@ -279,7 +320,13 @@ impl View for GraphView {
         }
     }
 
-    fn name(&self) -> &str { "Graph" }
+    fn name(&self) -> &str {
+        "Graph"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 
     fn keybindings(&self) -> Vec<(&'static str, &'static str)> {
         vec![

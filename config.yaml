@@ -3,7 +3,7 @@ database:
   active_profile: "local"
   profiles:
     local:
-      username: "${ORACLE_USERNAME:-PDBADMIN}"
+      username: "${ORACLE_USERNAME:-RAGCLI}"
       password: "${ORACLE_PASSWORD}"
       dsn: "${ORACLE_DSN:-localhost:1521/FREEPDB1}"
       use_tls: false
@@ -19,7 +19,7 @@ database:
 
 # Oracle Database 26ai Configuration (legacy, points to active profile)
 oracle:
-  username: "${ORACLE_USERNAME:-PDBADMIN}"
+  username: "${ORACLE_USERNAME:-RAGCLI}"
   password: "${ORACLE_PASSWORD}"
   dsn: "${ORACLE_DSN:-localhost:1521/FREEPDB1}"
   use_tls: false
@@ -28,10 +28,10 @@ oracle:
 
 # Ollama Configuration
 ollama:
-  endpoint: "http://localhost:11434"  # API endpoint URL
+  endpoint: "${OLLAMA_ENDPOINT:-http://localhost:11434}"  # API endpoint URL
   auto_detect_models: true            # Auto-refresh model list on startup
-  embedding_model: "nomic-embed-text" # Embedding model name
-  chat_model: "gemma3:270m"    # Chat model name
+  embedding_model: "${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}" # Embedding model name
+  chat_model: "${OLLAMA_CHAT_MODEL:-gemma3:270m}"    # Chat model name
   fallback_embedding_models:          # Fallback options if primary unavailable
     - "all-minilm"
     - "mxbai-embed-large"
@@ -70,9 +70,9 @@ logging:
   backup_count: 5
   detailed_metrics: true         # Log detailed metrics
 
-# API Configuration (AnythingLLM Integration)
+# API Configuration
 api:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 8000
   cors_origins:                  # Restrict to your frontend origins in production
     - "http://localhost:5173"    # Vite dev server

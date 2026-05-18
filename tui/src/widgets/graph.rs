@@ -53,9 +53,15 @@ impl ForceLayout {
             }
 
             // Attraction along edges — resolve indices first to avoid borrow conflicts
-            let node_idx: HashMap<String, usize> = self.nodes.iter().enumerate()
-                .map(|(i, n)| (n.id.clone(), i)).collect();
-            let edge_pairs: Vec<(usize, usize)> = self.edges.iter()
+            let node_idx: HashMap<String, usize> = self
+                .nodes
+                .iter()
+                .enumerate()
+                .map(|(i, n)| (n.id.clone(), i))
+                .collect();
+            let edge_pairs: Vec<(usize, usize)> = self
+                .edges
+                .iter()
                 .filter_map(|e| {
                     let si = node_idx.get(&e.source).copied()?;
                     let ti = node_idx.get(&e.target).copied()?;

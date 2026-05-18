@@ -1,12 +1,12 @@
-use ratatui::Frame;
+use super::View;
+use crate::theme::Theme;
+use crate::widgets::heatmap::{compute_contribution, EmbeddingStrip};
+use crossterm::event::KeyCode;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use crossterm::event::KeyCode;
-use crate::theme::Theme;
-use crate::widgets::heatmap::{compute_contribution, EmbeddingStrip};
-use super::View;
+use ratatui::Frame;
 
 pub struct HeatmapChunk {
     pub label: String,
@@ -68,8 +68,6 @@ impl View for HeatmapView {
         // Calculate how many rows we need:
         // 1 title + 1 blank + 1 query strip + 1 blank + visible_chunks*3 + 2 legend
         let visible = self.visible_chunks.min(self.chunks.len());
-        let needed_rows = 1 + 1 + 1 + 1 + (visible * 3) + 2;
-
         let mut constraints = vec![
             Constraint::Length(1), // title
             Constraint::Length(1), // blank
@@ -82,7 +80,7 @@ impl View for HeatmapView {
             constraints.push(Constraint::Length(1)); // blank
         }
         constraints.push(Constraint::Length(1)); // legend line 1
-        constraints.push(Constraint::Min(1));    // legend line 2 / remainder
+        constraints.push(Constraint::Min(1)); // legend line 2 / remainder
 
         let chunks_layout = Layout::default()
             .direction(Direction::Vertical)
@@ -91,8 +89,11 @@ impl View for HeatmapView {
 
         // Row 0: Title
         let title_text = format!("Query: {}", self.query_text);
-        let title = Paragraph::new(title_text)
-            .style(Style::default().fg(Color::Rgb(226, 232, 240)).add_modifier(Modifier::BOLD));
+        let title = Paragraph::new(title_text).style(
+            Style::default()
+                .fg(Color::Rgb(226, 232, 240))
+                .add_modifier(Modifier::BOLD),
+        );
         frame.render_widget(title, chunks_layout[0]);
 
         // Row 1: blank — nothing to render
@@ -162,8 +163,8 @@ impl View for HeatmapView {
                 visible,
                 self.chunks.len()
             );
-            let legend2 = Paragraph::new(scroll_info)
-                .style(Style::default().fg(Color::Rgb(100, 116, 139)));
+            let legend2 =
+                Paragraph::new(scroll_info).style(Style::default().fg(Color::Rgb(100, 116, 139)));
             frame.render_widget(legend2, chunks_layout[legend_idx + 1]);
         }
     }
@@ -190,6 +191,10 @@ impl View for HeatmapView {
 
     fn name(&self) -> &str {
         "Heatmap"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn keybindings(&self) -> Vec<(&'static str, &'static str)> {

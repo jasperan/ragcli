@@ -1,6 +1,6 @@
 """Main entry point for running ragcli as a module."""
 
-from .cli.main import app
+from .cli.main import main
 
 if __name__ == "__main__":
-    app()
+    main()

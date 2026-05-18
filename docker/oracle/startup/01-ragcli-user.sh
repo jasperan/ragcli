@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RAGCLI_USER="${ORACLE_APP_USERNAME:-RAGCLI}"
+RAGCLI_PASSWORD="${ORACLE_APP_PASSWORD:-${ORACLE_PWD:-}}"
+RAGCLI_PDB="${ORACLE_PDB:-FREEPDB1}"
+
+require_oracle_identifier() {
+  local name="$1"
+  local value="$2"
+  if [[ ! "${value}" =~ ^[A-Za-z][A-Za-z0-9_#$]{0,127}$ ]]; then
+    echo "${name} must be a simple Oracle identifier." >&2
+    exit 1
+  fi
+}
+
+if [[ -z "${RAGCLI_PASSWORD}" ]]; then
+  echo "Set ORACLE_APP_PASSWORD or ORACLE_PWD before creating the ragcli Oracle user." >&2
+  exit 1
+fi
+
+if [[ "${RAGCLI_PASSWORD}" == *$'\n'* || "${RAGCLI_PASSWORD}" == *$'\r'* || "${RAGCLI_PASSWORD}" == *"'"* || "${RAGCLI_PASSWORD}" == *'"'* ]]; then
+  echo "ORACLE_APP_PASSWORD must not contain quotes or line breaks." >&2
+  exit 1
+fi
+
+require_oracle_identifier "ORACLE_APP_USERNAME" "${RAGCLI_USER}"
+require_oracle_identifier "ORACLE_PDB" "${RAGCLI_PDB}"
+
+sqlplus -s / as sysdba <<SQL
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+SET DEFINE OFF
+ALTER SESSION SET CONTAINER = ${RAGCLI_PDB};
+
+DECLARE
+  tablespace_count NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO tablespace_count
+  FROM DBA_TABLESPACES
+  WHERE TABLESPACE_NAME = 'USERS';
+
+  IF tablespace_count = 0 THEN
+    EXECUTE IMMEDIATE 'CREATE TABLESPACE USERS DATAFILE ''/opt/oracle/oradata/FREE/${RAGCLI_PDB}/users01.dbf'' SIZE 100M AUTOEXTEND ON NEXT 50M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO';
+  END IF;
+END;
+/
+
+DECLARE
+  user_count NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO user_count
+  FROM DBA_USERS
+  WHERE USERNAME = UPPER('${RAGCLI_USER}');
+
+  IF user_count = 0 THEN
+    EXECUTE IMMEDIATE 'CREATE USER ${RAGCLI_USER} IDENTIFIED BY "${RAGCLI_PASSWORD}" DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP QUOTA UNLIMITED ON USERS';
+  ELSE
+    EXECUTE IMMEDIATE 'ALTER USER ${RAGCLI_USER} IDENTIFIED BY "${RAGCLI_PASSWORD}" ACCOUNT UNLOCK';
+    EXECUTE IMMEDIATE 'ALTER USER ${RAGCLI_USER} DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP QUOTA UNLIMITED ON USERS';
+  END IF;
+END;
+/
+
+GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE VIEW, CREATE PROCEDURE TO ${RAGCLI_USER};
+EXIT
+SQL
+
+echo "ragcli Oracle user ${RAGCLI_USER} is ready in ${RAGCLI_PDB}."

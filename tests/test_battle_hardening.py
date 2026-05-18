@@ -56,7 +56,7 @@ class TestUploadEdgeCases:
         f.write_text("")
         # Should proceed (empty text is valid, chunking produces 0 chunks)
         with patch('ragcli.core.rag_engine.OracleClient') as mc, \
-             patch('ragcli.core.rag_engine.find_document_by_hash', return_value=None), \
+             patch('ragcli.core.rag_engine.get_document_by_hash', return_value=None), \
              patch('ragcli.core.rag_engine.preprocess_document') as mp, \
              patch('ragcli.core.rag_engine.chunk_text') as mct, \
              patch('ragcli.core.rag_engine.get_document_metadata') as mm, \
@@ -82,7 +82,7 @@ class TestUploadEdgeCases:
         f.write_text("some content")
         mock_conn = MagicMock()
         with patch('ragcli.core.rag_engine.OracleClient') as mc, \
-             patch('ragcli.core.rag_engine.find_document_by_hash', return_value=None), \
+             patch('ragcli.core.rag_engine.get_document_by_hash', return_value=None), \
              patch('ragcli.core.rag_engine.preprocess_document') as mp, \
              patch('ragcli.core.rag_engine.chunk_text') as mct, \
              patch('ragcli.core.rag_engine.get_document_metadata') as mm, \

@@ -64,13 +64,13 @@ check_prereqs() {
             ver=$("$cmd" -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")' 2>/dev/null) || continue
             major=${ver%%.*}
             minor=${ver##*.}
-            if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 8 ]; }; then
+            if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 9 ]; }; then
                 PYTHON="$cmd"
                 break
             fi
         fi
     done
-    [ -n "$PYTHON" ] || fail "Python 3.8+ is required — https://www.python.org/downloads/"
+    [ -n "$PYTHON" ] || fail "Python 3.9+ is required — https://www.python.org/downloads/"
     success "Python $($PYTHON --version | cut -d' ' -f2)"
 
     if command_exists docker; then
@@ -92,8 +92,8 @@ install_deps() {
     source .venv/bin/activate
 
     info "Installing dependencies..."
-    pip install --upgrade pip -q
-    pip install -r requirements.txt -q
+    python -m pip install --upgrade pip -q
+    python -m pip install -e . -q
     success "Dependencies installed"
 }
 
@@ -113,6 +113,8 @@ print_done() {
     echo ""
     echo -e "  ${BOLD}Location:${NC}  $INSTALL_DIR"
     echo -e "  ${BOLD}Activate:${NC}  source $INSTALL_DIR/.venv/bin/activate"
+    echo -e "  ${BOLD}Check:${NC}     ragcli doctor"
+    echo -e "  ${BOLD}Run API:${NC}   ragcli api --port 8000"
     echo ""
     echo -e "  ${BOLD}Note:${NC}     Oracle Database connection required — see README for setup"
     echo ""
