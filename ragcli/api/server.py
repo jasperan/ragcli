@@ -309,51 +309,33 @@ async def list_documents(
     offset: Optional[int] = Query(0, ge=0)
 ):
     """List all documents with metadata."""
-    client = get_db_client()
-    conn = client.get_connection()
     try:
-        with conn.cursor() as cursor:
-            # Get documents with pagination
-            cursor.execute("""
-                SELECT document_id, filename, file_format, file_size_bytes,
-                       chunk_count, total_tokens, upload_timestamp, last_modified
-                FROM DOCUMENTS
-                ORDER BY upload_timestamp DESC
-                OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-            """, {"offset": offset, "limit": limit})
-
-            rows = cursor.fetchall()
-
-            # Get total count
-            cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
-            total_count = cursor.fetchone()[0]
-
+        page = DocumentRepository(get_db_client()).list_documents(
+            limit=limit or 100,
+            offset=offset or 0,
+        )
         documents = [
             DocumentInfo(
-                document_id=row[0],
-                filename=row[1],
-                file_format=row[2],
-                file_size_bytes=row[3],
-                chunk_count=row[4],
-                total_tokens=row[5],
-                upload_timestamp=row[6],
-                last_modified=row[7]
+                document_id=document.document_id,
+                filename=document.filename,
+                file_format=document.file_format,
+                file_size_bytes=document.file_size_bytes,
+                chunk_count=document.chunk_count,
+                total_tokens=document.total_tokens,
+                upload_timestamp=document.upload_timestamp,
+                last_modified=document.last_modified,
             )
-            for row in rows
+            for document in page.documents
         ]
 
         return DocumentListResponse(
             documents=documents,
-            total_count=total_count
+            total_count=page.total_count,
         )
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to list documents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list documents. Check server logs for details.")
-    finally:
-        conn.close()
 
 
 @app.delete("/api/documents/{doc_id}")

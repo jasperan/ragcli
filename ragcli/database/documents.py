@@ -22,6 +22,24 @@ class DocumentNotFound(Exception):
 
 
 @dataclass(frozen=True)
+class DocumentRecord:
+    document_id: str
+    filename: str
+    file_format: str
+    file_size_bytes: int
+    chunk_count: int
+    total_tokens: int
+    upload_timestamp: object
+    last_modified: object
+
+
+@dataclass(frozen=True)
+class DocumentPage:
+    documents: list[DocumentRecord]
+    total_count: int
+
+
+@dataclass(frozen=True)
 class DeletedDocument:
     document_id: str
     filename: str
@@ -33,6 +51,44 @@ class DocumentRepository:
 
     def __init__(self, client: _DatabaseClient):
         self._client = client
+
+    def list_documents(self, *, limit: int, offset: int) -> DocumentPage:
+        conn = self._client.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT document_id, filename, file_format, file_size_bytes,
+                           chunk_count, total_tokens, upload_timestamp, last_modified
+                    FROM DOCUMENTS
+                    ORDER BY upload_timestamp DESC
+                    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+                    """,
+                    {"offset": offset, "limit": limit},
+                )
+                rows = cursor.fetchall()
+
+                cursor.execute("SELECT COUNT(*) FROM DOCUMENTS")
+                total_count = cursor.fetchone()[0]
+
+            return DocumentPage(
+                documents=[
+                    DocumentRecord(
+                        document_id=row[0],
+                        filename=row[1],
+                        file_format=row[2],
+                        file_size_bytes=row[3],
+                        chunk_count=row[4],
+                        total_tokens=row[5],
+                        upload_timestamp=row[6],
+                        last_modified=row[7],
+                    )
+                    for row in rows
+                ],
+                total_count=total_count,
+            )
+        finally:
+            conn.close()
 
     def delete_document(self, doc_id: str) -> DeletedDocument:
         conn = self._client.get_connection()
