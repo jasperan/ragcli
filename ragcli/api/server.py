@@ -19,6 +19,7 @@ from ragcli.core.ollama_manager import (
     list_available_models
 )
 from ragcli.database.oracle_client import OracleClient
+from ragcli.database.documents import DocumentNotFound, DocumentRepository
 from ragcli.utils.status import get_overall_status, get_document_stats
 from ragcli.utils.validators import sanitize_filename
 from ragcli.utils.logger import get_logger
@@ -358,41 +359,19 @@ async def list_documents(
 @app.delete("/api/documents/{doc_id}")
 async def delete_document(doc_id: str):
     """Delete a document and all its chunks."""
-    client = get_db_client()
-    conn = client.get_connection()
     try:
-        with conn.cursor() as cursor:
-            # Check if document exists
-            cursor.execute("SELECT filename FROM DOCUMENTS WHERE document_id = :doc_id", {"doc_id": doc_id})
-            result = cursor.fetchone()
-
-            if not result:
-                raise HTTPException(status_code=404, detail="Document not found")
-
-            filename = result[0]
-
-            # Delete chunks first (foreign key constraint)
-            cursor.execute("DELETE FROM CHUNKS WHERE document_id = :doc_id", {"doc_id": doc_id})
-            chunks_deleted = cursor.rowcount
-
-            # Delete document
-            cursor.execute("DELETE FROM DOCUMENTS WHERE document_id = :doc_id", {"doc_id": doc_id})
-
-        conn.commit()
-
+        deleted = DocumentRepository(get_db_client()).delete_document(doc_id)
         return {
-            "message": f"Document '{filename}' deleted successfully",
-            "document_id": doc_id,
-            "chunks_deleted": chunks_deleted
+            "message": f"Document '{deleted.filename}' deleted successfully",
+            "document_id": deleted.document_id,
+            "chunks_deleted": deleted.chunks_deleted,
         }
 
-    except HTTPException:
-        raise
+    except DocumentNotFound:
+        raise HTTPException(status_code=404, detail="Document not found")
     except Exception as e:
         logger.error(f"Failed to delete document: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to delete document. Check server logs for details.")
-    finally:
-        conn.close()
 
 
 async def _stream_query(request: QueryRequest):
