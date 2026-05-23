@@ -46,6 +46,46 @@ def test_list_documents_closes_connection_on_error():
     conn.rollback.assert_not_called()
 
 
+def test_list_chunks_returns_page_and_normalizes_lob_text():
+    class LobText:
+        def read(self):
+            return "second chunk text"
+
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [
+        ("chunk-1", 1, "first chunk text", 3, 16),
+        ("chunk-2", 2, LobText(), 3, 17),
+    ]
+    cursor.fetchone.return_value = (9,)
+    repo, conn = _repository_with_cursor(cursor)
+
+    page = repo.list_chunks(doc_id="doc-123", limit=2, offset=4)
+
+    assert page.total_count == 9
+    assert [chunk.chunk_id for chunk in page.chunks] == ["chunk-1", "chunk-2"]
+    assert page.chunks[1].text == "second chunk text"
+    assert cursor.execute.call_args_list[0].args[1] == {
+        "doc_id": "doc-123",
+        "offset": 4,
+        "limit": 2,
+    }
+    assert cursor.execute.call_args_list[1].args[1] == {"doc_id": "doc-123"}
+    conn.close.assert_called_once()
+
+
+def test_list_chunks_closes_connection_on_error():
+    cursor = MagicMock()
+    cursor.execute.side_effect = RuntimeError("chunk query failed")
+    repo, conn = _repository_with_cursor(cursor)
+
+    with pytest.raises(RuntimeError, match="chunk query failed"):
+        repo.list_chunks(doc_id="doc-123", limit=100, offset=0)
+
+    conn.close.assert_called_once()
+    conn.commit.assert_not_called()
+    conn.rollback.assert_not_called()
+
+
 def test_delete_document_raises_not_found():
     cursor = MagicMock()
     cursor.fetchone.return_value = None

@@ -40,6 +40,21 @@ class DocumentPage:
 
 
 @dataclass(frozen=True)
+class DocumentChunk:
+    chunk_id: str
+    chunk_number: int
+    text: str
+    token_count: int
+    character_count: int
+
+
+@dataclass(frozen=True)
+class DocumentChunkPage:
+    chunks: list[DocumentChunk]
+    total_count: int
+
+
+@dataclass(frozen=True)
 class DeletedDocument:
     document_id: str
     filename: str
@@ -90,6 +105,44 @@ class DocumentRepository:
         finally:
             conn.close()
 
+    def list_chunks(self, *, doc_id: str, limit: int, offset: int) -> DocumentChunkPage:
+        conn = self._client.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT chunk_id, chunk_number, chunk_text, token_count, character_count
+                    FROM CHUNKS
+                    WHERE document_id = :doc_id
+                    ORDER BY chunk_number
+                    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+                    """,
+                    {"doc_id": doc_id, "offset": offset, "limit": limit},
+                )
+                rows = cursor.fetchall()
+
+                cursor.execute(
+                    "SELECT COUNT(*) FROM CHUNKS WHERE document_id = :doc_id",
+                    {"doc_id": doc_id},
+                )
+                total_count = cursor.fetchone()[0]
+
+            return DocumentChunkPage(
+                chunks=[
+                    DocumentChunk(
+                        chunk_id=row[0],
+                        chunk_number=row[1],
+                        text=_read_text(row[2]),
+                        token_count=row[3],
+                        character_count=row[4],
+                    )
+                    for row in rows
+                ],
+                total_count=total_count,
+            )
+        finally:
+            conn.close()
+
     def delete_document(self, doc_id: str) -> DeletedDocument:
         conn = self._client.get_connection()
         try:
@@ -126,3 +179,14 @@ class DocumentRepository:
             raise
         finally:
             conn.close()
+
+
+def _read_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+
+    read = getattr(value, "read", None)
+    if callable(read):
+        return read()
+
+    return str(value)

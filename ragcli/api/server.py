@@ -1009,29 +1009,28 @@ async def get_document_chunks(
     offset: int = Query(0, ge=0),
 ):
     """List chunks for a document with pagination."""
-    conn = get_db_client().get_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT chunk_id, chunk_number, chunk_text, token_count, character_count "
-                "FROM CHUNKS WHERE document_id = :1 ORDER BY chunk_number "
-                "OFFSET :2 ROWS FETCH NEXT :3 ROWS ONLY", [doc_id, offset, limit])
-            rows = cur.fetchall()
-            cur.execute("SELECT COUNT(*) FROM CHUNKS WHERE document_id = :1", [doc_id])
-            total = cur.fetchone()[0]
-        chunks = [ChunkDetailResponse(
-            chunk_id=r[0], chunk_number=r[1],
-            text=r[2] if isinstance(r[2], str) else r[2].read(),
-            token_count=r[3], character_count=r[4]
-        ) for r in rows]
-        return ChunkListResponse(chunks=chunks, total_count=total)
+        page = DocumentRepository(get_db_client()).list_chunks(
+            doc_id=doc_id,
+            limit=limit,
+            offset=offset,
+        )
+        chunks = [
+            ChunkDetailResponse(
+                chunk_id=chunk.chunk_id,
+                chunk_number=chunk.chunk_number,
+                text=chunk.text,
+                token_count=chunk.token_count,
+                character_count=chunk.character_count,
+            )
+            for chunk in page.chunks
+        ]
+        return ChunkListResponse(chunks=chunks, total_count=page.total_count)
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to get document chunks: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get document chunks.")
-    finally:
-        conn.close()
 
 
 @app.get("/api/stats/latency", response_model=LatencyResponse)
