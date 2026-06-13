@@ -263,14 +263,11 @@ def ask_query(
         results = search_result['results']
         search_metrics = search_result['metrics']
 
-        # Assemble context
+        # Assemble context (also used below for the token estimate)
         context = "\n\n".join([f"From {r['document_id']}: {r['text']}" for r in results])
 
         # RAG prompt
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant. Use the following context to answer the user's question accurately. If the context doesn't contain relevant information, say so."},
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
-        ]
+        messages = build_prompt(query, results, config)
 
         # Generate response
         gen_start = time.perf_counter()

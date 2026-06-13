@@ -50,12 +50,6 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     with open(config_path, "r", encoding="utf-8") as f:
         loaded_config = yaml.safe_load(f) or {}
 
-    # Check for sensitive data before substitution
-    if 'oracle' in loaded_config and 'password' in loaded_config['oracle']:
-        oracle = loaded_config['oracle']
-        if isinstance(oracle['password'], str) and oracle['password'] and not oracle['password'].startswith('${'):
-            pass # Suppressed security warning per user request
-
     # Substitute env vars
     substituted = parse_env_vars(loaded_config)
 

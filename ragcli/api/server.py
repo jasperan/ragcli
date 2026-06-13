@@ -1,8 +1,11 @@
 """FastAPI server for ragcli."""
 
+import asyncio
+import json as _json
 import os
 import tempfile
 import time
+from contextlib import asynccontextmanager
 from collections import defaultdict
 from datetime import datetime
 from typing import Optional
@@ -12,6 +15,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 
+from ragcli import __version__
 from ragcli.config.config_manager import load_config
 from ragcli.config.defaults import DEFAULT_CONFIG
 from ragcli.core.rag_engine import upload_document, ask_query
@@ -141,9 +145,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-from contextlib import asynccontextmanager
-
-
 @asynccontextmanager
 async def lifespan(app):
     """Startup/shutdown lifecycle for the FastAPI app."""
@@ -159,7 +160,7 @@ async def lifespan(app):
 app = FastAPI(
     title="ragcli API",
     description="REST API for RAG operations with Oracle 26ai and Ollama",
-    version="1.0.0",
+    version=__version__,
     docs_url="/docs" if config.get('api', {}).get('enable_swagger', True) else None,
     lifespan=lifespan,
 )
@@ -186,7 +187,7 @@ async def root():
     """Root endpoint."""
     return {
         "name": "ragcli API",
-        "version": "1.0.0",
+        "version": __version__,
         "docs": "/docs",
         "status": "running"
     }
@@ -195,14 +196,11 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     """Readiness probe: checks DB connectivity and Ollama availability with latency."""
-    import asyncio
-    import time as _time
-
     checks = {}
 
     # DB probe
     def _probe_db():
-        t0 = _time.perf_counter()
+        t0 = time.perf_counter()
         try:
             client = get_db_client()
             conn = client.get_connection()
@@ -210,15 +208,15 @@ async def health_check():
                 with conn.cursor() as cur:
                     cur.execute("SELECT 1 FROM DUAL")
                     cur.fetchone()
-                return {"status": "ok", "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+                return {"status": "ok", "latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
             finally:
                 conn.close()
         except Exception as e:
-            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
 
     # Ollama probe
     def _probe_ollama():
-        t0 = _time.perf_counter()
+        t0 = time.perf_counter()
         try:
             from ragcli.core.embedding import _get_http_session
             resp = _get_http_session().get(
@@ -227,9 +225,9 @@ async def health_check():
             )
             resp.raise_for_status()
             model_count = len(resp.json().get("models", []))
-            return {"status": "ok", "models": model_count, "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+            return {"status": "ok", "models": model_count, "latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
         except Exception as e:
-            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((_time.perf_counter() - t0) * 1000, 1)}
+            return {"status": "error", "error": str(type(e).__name__), "latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
 
     # Embedding cache stats
     from ragcli.core.embedding import get_embedding_cache
@@ -358,8 +356,6 @@ async def delete_document(doc_id: str):
 
 async def _stream_query(request: QueryRequest):
     """SSE generator for streaming query responses."""
-    import asyncio
-    import json as _json
     from ragcli.core.rag_engine import search_chunks as _sc, build_prompt as _bp
     from ragcli.core.embedding import generate_response as _gr
 

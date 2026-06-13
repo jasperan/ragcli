@@ -10,7 +10,7 @@
 [![React](https://img.shields.io/badge/React-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![PyPI](https://img.shields.io/badge/PyPI-oracle--ragcli-blue.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ragcli/)
 [![Version](https://img.shields.io/badge/version-2.0.1-brightgreen.svg?style=for-the-badge)](https://github.com/jasperan/ragcli/releases)
-[![Tests](https://img.shields.io/badge/tests-222_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
+[![Tests](https://img.shields.io/badge/tests-242_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -390,7 +390,6 @@ Safe loading handles env vars (e.g., `${ORACLE_PASSWORD}`) and validation.
 
 #### Enhanced Progress Tracking
 Upload documents with real-time progress bars showing:
-- File processing status
 - File processing status
 - Chunking progress
 - Embedding generation with ETA

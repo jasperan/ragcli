@@ -107,32 +107,17 @@ def insert_chunk(
     embedding: List[float] = None,
     embedding_model: str = "nomic-embed-text"
 ) -> str:
-    """Insert a chunk with embedding."""
-    chunk_id = generate_id()
-
-    sql = """
-    INSERT INTO CHUNKS (
-        chunk_id, document_id, chunk_number, chunk_text, token_count,
-        character_count, start_position, end_position, chunk_embedding, embedding_model
-    ) VALUES (
-        :v_chunk_id, :v_doc_id, :v_chunk_num, :v_text, :v_token_count,
-        :v_char_count, :v_start, :v_end, TO_VECTOR(:v_embedding), :v_model
-    )
-    """
-    with conn.cursor() as cursor:
-        cursor.execute(sql, {
-            'v_chunk_id': chunk_id,
-            'v_doc_id': doc_id,
-            'v_chunk_num': chunk_number,
-            'v_text': chunk_text,
-            'v_token_count': token_count,
-            'v_char_count': character_count,
-            'v_start': start_pos,
-            'v_end': end_pos,
-            'v_embedding': json.dumps(embedding or []),
-            'v_model': embedding_model
-        })
-    return chunk_id
+    """Insert a single chunk with embedding. Thin wrapper over insert_chunks_batch."""
+    chunk = {
+        'chunk_number': chunk_number,
+        'text': chunk_text,
+        'token_count': token_count,
+        'char_count': character_count,
+        'start_pos': start_pos,
+        'end_pos': end_pos,
+        'embedding': embedding or [],
+    }
+    return insert_chunks_batch(conn, doc_id, [chunk], embedding_model=embedding_model)[0]
 
 def insert_chunks_batch(
     conn: oracledb.Connection,
@@ -183,7 +168,7 @@ def search_similar(
     """Search for similar chunks using vector similarity."""
     sql_base = """
     SELECT c.chunk_id, c.document_id, c.chunk_text, c.chunk_number,
-           VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) AS similarity_score,
+           VECTOR_DISTANCE(c.chunk_embedding, TO_VECTOR(:v_query_emb), COSINE) AS distance,
            c.chunk_embedding
     FROM CHUNKS c
     """
@@ -197,7 +182,7 @@ def search_similar(
         binds.update(doc_binds)
 
     sql = sql_base + """
-    ORDER BY similarity_score ASC
+    ORDER BY distance ASC
     FETCH FIRST :v_top_k ROWS ONLY
     """
 
@@ -206,7 +191,8 @@ def search_similar(
 
         results = []
         for row in cursor:
-            score = 1 - row[4]  # Convert distance to similarity (cosine similarity = 1 - distance)
+            distance = row[4]
+            score = 1 - distance  # Convert cosine distance to similarity
             if score >= min_similarity:
                 chunk_text_val = str(row[2]) if row[2] else ""
                 db_embedding = row[5]
