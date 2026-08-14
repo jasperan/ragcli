@@ -10,7 +10,7 @@
 [![React](https://img.shields.io/badge/React-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![PyPI](https://img.shields.io/badge/PyPI-oracle--ragcli-blue.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ragcli/)
 [![Version](https://img.shields.io/badge/version-2.0.1-brightgreen.svg?style=for-the-badge)](https://github.com/jasperan/ragcli/releases)
-[![Tests](https://img.shields.io/badge/tests-242_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
+[![Tests](https://img.shields.io/badge/tests-262_passing-brightgreen.svg?style=for-the-badge)](#testing-oracle-integrations)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 </div>
@@ -114,8 +114,8 @@ Each view has its own keybindings. Press `?` inside any view to see them.
 |---------|-------------|
 | **Multi-Agent CoT** | 4-agent reasoning pipeline (Planner, Researcher, Reasoner, Synthesizer) with full trace storage |
 | **Knowledge Graph** | LLM-powered entity/relationship extraction, Oracle graph store, multi-hop traversal |
-| **Hybrid Search** | BM25 + Vector + Graph signals fused with Reciprocal Rank Fusion (RRF) |
-| **Feedback Loops** | Wilson score chunk quality, graph edge tuning, search weight adjustment |
+| **Hybrid Search** | BM25 + Vector + Graph signals fused with Reciprocal Rank Fusion (RRF), wired end-to-end into the query path (CLI, API, and SSE) with per-query signal routing |
+| **Feedback Loops** | Wilson score chunk quality, graph edge tuning, search weight adjustment — quality scores re-rank retrieval on every query |
 | **Session Memory** | Multi-turn conversations, query rewriting, rolling summarization |
 | **Eval Suite** | Synthetic Q&A generation, 4 LLM-judged metrics (faithfulness, relevance, precision, recall) |
 | **Live Sync** | Watchdog file monitoring, git polling, URL polling, diff-chunking |
@@ -376,7 +376,7 @@ ollama:
 - **api**: Host, port (8000), CORS origins, Swagger docs.
 - **documents**: Chunk size (1000), overlap (10%), max size (100MB).
 - **rag**: Top-k (5), min similarity (0.5).
-- **search**: Strategy (hybrid), RRF k (60), signal weights (bm25, vector, graph).
+- **search**: Strategy (hybrid | vector_only | bm25_only), RRF k (60), signal weights (bm25, vector, graph), query router toggle (`use_router`). Hybrid is the default and is active in the real query path: queries are routed per-query, signals are fused with RRF, and per-chunk feedback quality scores re-rank results. The knowledge graph signal falls back to lexical entity matching when entity embeddings are unavailable.
 - **memory**: Session timeout (30min), max recent turns (5), summarize interval.
 - **knowledge_graph**: Enabled, max entities per chunk (10), dedup threshold (0.9), max hops (2).
 - **feedback**: Quality boost range (0.15), recalibrate threshold (50).

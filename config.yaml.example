@@ -80,7 +80,7 @@ search:
     bm25: 1.0
     vector: 1.0
     graph: 0.8
-  use_router: true                # Auto-select signals per query
+  use_router: true                # Route each query to the best signals (BM25/vector/graph)
 
 # Session Memory
 memory:
