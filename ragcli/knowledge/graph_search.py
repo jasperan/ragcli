@@ -55,7 +55,7 @@ class GraphSearch:
         if not terms:
             return []
 
-        like_clauses = " OR ".join(["UPPER(entity_name) LIKE :p%d" % i for i in range(len(terms))])
+        like_clauses = " OR ".join([f"UPPER(entity_name) LIKE :p{i}" for i in range(len(terms))])
         binds = {f"p{i}": f"%{t}%" for i, t in enumerate(terms)}
         binds["v_top_k"] = top_k
 

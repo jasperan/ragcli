@@ -6,7 +6,7 @@ the query router, loads feedback quality scores, and degrades gracefully when
 individual signals fail -- while the classic ``vector_only`` path is unchanged.
 """
 
-import pytest
+from contextlib import ExitStack, contextmanager
 from unittest.mock import MagicMock, patch
 
 from ragcli.search.fusion import HybridSearch
@@ -43,28 +43,72 @@ def _vector_chunk(cid, rank=0):
     }
 
 
+@contextmanager
+def _patched_hybrid(conn=None, config=None, patch_quality=True):
+    """Yield (hybrid, mocks) with every external boundary patched to inert defaults.
+
+    Tests override individual ``mocks[name].return_value`` / ``side_effect``
+    entries (names: embedding, vector, bm25, graph, and quality unless
+    ``patch_quality=False``).
+    """
+    hybrid = HybridSearch(conn or MagicMock(), config or _config())
+    with ExitStack() as stack:
+        mocks = {
+            "embedding": stack.enter_context(
+                patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768)
+            ),
+            "vector": stack.enter_context(patch("ragcli.search.fusion.search_similar", return_value=[])),
+            "bm25": stack.enter_context(patch.object(hybrid.bm25, "search", return_value=[])),
+            "graph": stack.enter_context(
+                patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": []})
+            ),
+        }
+        if patch_quality:
+            mocks["quality"] = stack.enter_context(patch.object(hybrid, "_load_quality_scores", return_value={}))
+        yield hybrid, mocks
+
+
+def _conn_with_cursor(rows=None, side_effect=None):
+    """Return a connection whose cursor yields ``rows`` (or replays ``side_effect``)."""
+    conn = MagicMock()
+    cursor = MagicMock()
+    if side_effect is not None:
+        cursor.fetchall.side_effect = side_effect
+    else:
+        cursor.fetchall.return_value = rows
+    conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
+    conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    return conn, cursor
+
+
+def _mock_hybrid(results=None, signal_counts=None):
+    """A HybridSearch-class mock whose search() returns fused results."""
+    mock_hybrid = MagicMock()
+    mock_hybrid.search.return_value = {
+        "results": results or [],
+        "query_embedding": [0.1] * 768,
+        "signal_counts": signal_counts or {"vector": 0, "bm25": 0, "graph": 0},
+    }
+    return mock_hybrid
+
+
 class TestHybridSearchFusion:
 
     def test_fuses_multiple_signals_with_rrf(self):
         """Vector + BM25 hits for the same chunk should outrank single-signal hits."""
-        conn = MagicMock()
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]) as mock_vec, \
-             patch.object(hybrid.bm25, "search", return_value=[
-                 {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25 text", "chunk_number": 2},
-                 {"chunk_id": "c1", "document_id": "doc-1", "text": "vector text c1", "chunk_number": 1},
-             ]) as mock_bm25, \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": ["c3"]}) as mock_graph:
+        with _patched_hybrid() as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
+            m["bm25"].return_value = [
+                {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25 text", "chunk_number": 2},
+                {"chunk_id": "c1", "document_id": "doc-1", "text": "vector text c1", "chunk_number": 1},
+            ]
+            m["graph"].return_value = {"chunk_ids": ["c3"]}
 
             result = hybrid.search("test query", top_k=5, signals={"vector", "bm25", "graph"})
 
-            assert mock_vec.called
-            assert mock_bm25.called
-            assert mock_graph.called
+            assert m["vector"].called
+            assert m["bm25"].called
+            assert m["graph"].called
             # c1 appears in vector (rank 0) + bm25 (rank 1) -> highest fused score
             assert result["results"][0]["chunk_id"] == "c1"
             assert result["signal_counts"] == {"vector": 1, "bm25": 2, "graph": 1}
@@ -73,38 +117,18 @@ class TestHybridSearchFusion:
 
     def test_preserves_per_chunk_embeddings(self):
         """include_embeddings should still get chunk vectors after fusion."""
-        conn = MagicMock()
-        config = _config()
-        hybrid = HybridSearch(conn, config)
         vec_chunk = _vector_chunk("c1", 0)
         vec_chunk["embedding"] = [0.42] * 768
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[vec_chunk]), \
-             patch.object(hybrid.bm25, "search", return_value=[]), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": []}):
-
+        with _patched_hybrid() as (hybrid, m):
+            m["vector"].return_value = [vec_chunk]
             result = hybrid.search("q", top_k=5)
             assert result["results"][0]["embedding"] == [0.42] * 768
 
     def test_graph_only_chunks_are_enriched_with_text(self):
         """Chunks found only via the graph signal should still carry text."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchall.return_value = [("g1", "doc-9", "Graph-discovered chunk text", 3)]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[]), \
-             patch.object(hybrid.bm25, "search", return_value=[]), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": ["g1"]}):
-
+        conn, cursor = _conn_with_cursor([("g1", "doc-9", "Graph-discovered chunk text", 3)])
+        with _patched_hybrid(conn=conn) as (hybrid, m):
+            m["graph"].return_value = {"chunk_ids": ["g1"]}
             result = hybrid.search("q", top_k=5)
             assert "FROM CHUNKS" in cursor.execute.call_args[0][0].upper()
             assert result["results"][0]["chunk_id"] == "g1"
@@ -113,117 +137,72 @@ class TestHybridSearchFusion:
 
     def test_quality_scores_loaded_from_db_when_not_provided(self):
         """Feedback quality scores should be loaded from CHUNK_QUALITY automatically."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchall.return_value = [("c1", 0.9)]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-
-        with patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]), \
-             patch.object(hybrid.bm25, "search", return_value=[]), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": []}):
-
+        conn, cursor = _conn_with_cursor([("c1", 0.9)])
+        with _patched_hybrid(conn=conn, patch_quality=False) as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
             result = hybrid.search("q", top_k=5)
-
             # CHUNK_QUALITY query executed
             assert "CHUNK_QUALITY" in cursor.execute.call_args[0][0]
             assert result["results"][0]["chunk_id"] == "c1"
 
     def test_quality_boost_changes_ranking(self):
         """A low-quality chunk should be penalized relative to a neutral one."""
-        conn = MagicMock()
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-        boost_range = config["feedback"]["quality_boost_range"]
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar",
-                   return_value=[_vector_chunk("good", 0), _vector_chunk("bad", 1)]), \
-             patch.object(hybrid.bm25, "search", return_value=[]), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": []}):
-
+        with _patched_hybrid() as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("good", 0), _vector_chunk("bad", 1)]
             # Precompute quality scores: "good" boosted, "bad" penalized
             quality = {"good": 1.0, "bad": 0.0}
             result = hybrid.search("q", top_k=5, quality_scores=quality)
-
             ranked = [r["chunk_id"] for r in result["results"]]
             assert ranked.index("good") < ranked.index("bad")
 
     def test_failed_graph_signal_does_not_kill_search(self):
         """A graph crash should be isolated -- vector + BM25 still fuse."""
-        conn = MagicMock()
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]), \
-             patch.object(hybrid.bm25, "search", return_value=[]), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", side_effect=RuntimeError("graph down")):
-
+        with _patched_hybrid() as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
+            m["graph"].side_effect = RuntimeError("graph down")
             result = hybrid.search("q", top_k=5)
             assert result["results"][0]["chunk_id"] == "c1"
             assert result["signal_counts"]["graph"] == 0
 
     def test_failed_bm25_signal_is_isolated(self):
-        conn = MagicMock()
-        config = _config()
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]), \
-             patch.object(hybrid.bm25, "search", side_effect=RuntimeError("no text index")), \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": []}):
-
+        with _patched_hybrid() as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
+            m["bm25"].side_effect = RuntimeError("no text index")
             result = hybrid.search("q", top_k=5)
             assert result["results"][0]["chunk_id"] == "c1"
             assert result["signal_counts"]["bm25"] == 0
 
     def test_bm25_only_strategy(self):
         """bm25_only strategy should not run vector or graph signals."""
-        conn = MagicMock()
         config = _config()
         config["search"]["strategy"] = "bm25_only"
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]) as mock_vec, \
-             patch.object(hybrid.bm25, "search", return_value=[
-                 {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25", "chunk_number": 1}]) as mock_bm25, \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": ["c3"]}) as mock_graph:
-
+        with _patched_hybrid(config=config) as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
+            m["bm25"].return_value = [
+                {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25", "chunk_number": 1}
+            ]
+            m["graph"].return_value = {"chunk_ids": ["c3"]}
             result = hybrid.search("q", top_k=5)
-            assert not mock_vec.called
-            assert mock_bm25.called
-            assert not mock_graph.called
+            assert not m["vector"].called
+            assert m["bm25"].called
+            assert not m["graph"].called
             assert result["results"][0]["chunk_id"] == "c2"
 
     def test_strategy_is_authoritative_over_router(self):
         """bm25_only strategy must win even if the router suggests other signals."""
-        conn = MagicMock()
         config = _config()
         config["search"]["strategy"] = "bm25_only"
-        hybrid = HybridSearch(conn, config)
-
-        with patch.object(hybrid, "_load_quality_scores", return_value={}), \
-             patch("ragcli.search.fusion.generate_embedding", return_value=[0.1] * 768), \
-             patch("ragcli.search.fusion.search_similar", return_value=[_vector_chunk("c1", 0)]) as mock_vec, \
-             patch.object(hybrid.bm25, "search", return_value=[
-                 {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25", "chunk_number": 1}]) as mock_bm25, \
-             patch.object(hybrid.graph_search, "subgraph_for_query", return_value={"chunk_ids": ["c3"]}) as mock_graph:
-
+        with _patched_hybrid(config=config) as (hybrid, m):
+            m["vector"].return_value = [_vector_chunk("c1", 0)]
+            m["bm25"].return_value = [
+                {"chunk_id": "c2", "document_id": "doc-1", "text": "bm25", "chunk_number": 1}
+            ]
+            m["graph"].return_value = {"chunk_ids": ["c3"]}
             # Router would say "vector only" for a long query, but bm25_only wins
             result = hybrid.search("q", top_k=5, signals={"vector"})
-            assert not mock_vec.called
-            assert mock_bm25.called
-            assert not mock_graph.called
+            assert not m["vector"].called
+            assert m["bm25"].called
+            assert not m["graph"].called
             assert result["results"][0]["chunk_id"] == "c2"
 
 
@@ -244,12 +223,7 @@ class TestSearchChunksStrategy:
              patch("ragcli.core.similarity_search.generate_embedding", return_value=[0.1] * 768), \
              patch("ragcli.core.similarity_search.HybridSearch") as mock_hybrid_cls:
 
-            mock_hybrid = MagicMock()
-            mock_hybrid.search.return_value = {
-                "results": [_vector_chunk("c1", 0)],
-                "query_embedding": [0.1] * 768,
-                "signal_counts": {"vector": 1, "bm25": 1, "graph": 0},
-            }
+            mock_hybrid = _mock_hybrid([_vector_chunk("c1", 0)], {"vector": 1, "bm25": 1, "graph": 0})
             mock_hybrid_cls.return_value = mock_hybrid
 
             result = search_chunks("test query", 5, 0.5, None, config)
@@ -270,11 +244,7 @@ class TestSearchChunksStrategy:
              patch("ragcli.core.similarity_search.generate_embedding", return_value=[0.1] * 768), \
              patch("ragcli.core.similarity_search.HybridSearch") as mock_hybrid_cls:
 
-            mock_hybrid = MagicMock()
-            mock_hybrid.search.return_value = {
-                "results": [], "query_embedding": [0.1] * 768,
-                "signal_counts": {"vector": 0, "bm25": 0, "graph": 0},
-            }
+            mock_hybrid = _mock_hybrid()
             mock_hybrid_cls.return_value = mock_hybrid
 
             # A short technical query should route BM25 + vector per QueryRouter
@@ -294,11 +264,7 @@ class TestSearchChunksStrategy:
              patch("ragcli.core.similarity_search.generate_embedding", return_value=[0.1] * 768), \
              patch("ragcli.core.similarity_search.HybridSearch") as mock_hybrid_cls:
 
-            mock_hybrid = MagicMock()
-            mock_hybrid.search.return_value = {
-                "results": [], "query_embedding": [0.1] * 768,
-                "signal_counts": {"vector": 0, "bm25": 0, "graph": 0},
-            }
+            mock_hybrid = _mock_hybrid()
             mock_hybrid_cls.return_value = mock_hybrid
 
             search_chunks("a long natural language question", 5, 0.5, None, config)
@@ -330,11 +296,7 @@ class TestSearchChunksStrategy:
         with patch("ragcli.core.similarity_search.generate_embedding", return_value=[0.1] * 768), \
              patch("ragcli.core.similarity_search.HybridSearch") as mock_hybrid_cls:
 
-            mock_hybrid = MagicMock()
-            mock_hybrid.search.return_value = {
-                "results": [], "query_embedding": [0.1] * 768,
-                "signal_counts": {"vector": 0, "bm25": 0, "graph": 0},
-            }
+            mock_hybrid = _mock_hybrid()
             mock_hybrid_cls.return_value = mock_hybrid
 
             search_chunks("q", 5, 0.5, None, config, conn=conn)
@@ -346,12 +308,7 @@ class TestGraphSearchSchemaFixes:
 
     def test_find_entities_by_embedding_uses_entity_name_column(self):
         """The embedding query must select the real entity_name column."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchall.return_value = [("e1", "Python", "TECHNOLOGY", 0.1)]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
+        conn, cursor = _conn_with_cursor([("e1", "Python", "TECHNOLOGY", 0.1)])
         gs = GraphSearch(conn, {"knowledge_graph": {"max_hops": 2}})
         results = gs.find_entities_by_embedding([0.1, 0.2, 0.3], top_k=5)
 
@@ -362,15 +319,10 @@ class TestGraphSearchSchemaFixes:
 
     def test_expand_entity_uses_real_relationship_columns(self):
         """_expand_entity must query source_id/target_id/rel_type (real schema)."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchall.return_value = [
+        conn, cursor = _conn_with_cursor([
             ("e2", "LangChain", "TECHNOLOGY", "USES"),
             ("e3", "Oracle", "TECHNOLOGY", "DEPENDS_ON"),
-        ]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
+        ])
         gs = GraphSearch(conn, {"knowledge_graph": {"max_hops": 2}})
         related = gs._expand_entity("e1", max_hops=1)
 
@@ -385,16 +337,11 @@ class TestGraphSearchSchemaFixes:
 
     def test_expand_entity_dedups_cycles_across_hops(self):
         """A relationship discovered in an earlier hop must not be re-emitted."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        # Hop 1 discovers e2; hop 2 (e2 -> e1 cycle back, e2 -> e3 new)
-        cursor.fetchall.side_effect = [
+        conn, cursor = _conn_with_cursor(side_effect=[
+            # Hop 1 discovers e2; hop 2 (e2 -> e1 cycle back, e2 -> e3 new)
             [("e2", "LangChain", "TECHNOLOGY", "USES")],
             [("e1", "Python", "TECHNOLOGY", "USES"), ("e3", "Oracle", "TECHNOLOGY", "DEPENDS_ON")],
-        ]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
+        ])
         gs = GraphSearch(conn, {"knowledge_graph": {"max_hops": 2}})
         related = gs._expand_entity("e1", max_hops=2)
 
@@ -404,12 +351,7 @@ class TestGraphSearchSchemaFixes:
 
     def test_lexical_fallback_finds_entities_without_embeddings(self):
         """find_entities_by_name should surface entities when no vectors exist."""
-        conn = MagicMock()
-        cursor = MagicMock()
-        cursor.fetchall.return_value = [("e1", "Oracle Database", "TECHNOLOGY", 3)]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
+        conn, cursor = _conn_with_cursor([("e1", "Oracle Database", "TECHNOLOGY", 3)])
         gs = GraphSearch(conn, {"knowledge_graph": {"max_hops": 2}})
         results = gs.find_entities_by_name("oracle database tuning", top_k=5)
 
@@ -450,17 +392,12 @@ class TestAskQueryThroughHybridPath:
         from ragcli.core.rag_engine import ask_query
 
         # --- Database boundary -------------------------------------------------
-        conn = MagicMock()
-        cursor = MagicMock()
-        # Vector search returns one chunk; CHUNK_QUALITY query returns one row
-        cursor.fetchall.side_effect = [
+        conn, cursor = _conn_with_cursor(side_effect=[
+            # Vector search returns one chunk; CHUNK_QUALITY query returns one row
             [("chunk-1", "doc-1", "Retrieval chunk text about Oracle AI.", 1, 0.12, [0.1] * 768)],
             [("chunk-1", 0.9)],
-        ]
+        ])
         cursor.fetchone.side_effect = [None]
-        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
-        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-
         client = MagicMock()
         client.get_connection.return_value = conn
 

@@ -7,7 +7,7 @@ re-ranking multiplier, so retrieval self-improves as users give feedback.
 """
 
 from collections import defaultdict
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional, Set, Tuple, Collection
 
 from ..core.embedding import generate_embedding
 from ..database.vector_ops import search_similar
@@ -18,6 +18,16 @@ from ..utils.logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_WEIGHTS = {"bm25": 1.0, "vector": 1.0, "graph": 0.8}
+
+
+def _in_binds(values: Collection[str]) -> Tuple[str, Dict[str, str]]:
+    """Build an Oracle IN-clause with bind params for a list of values.
+
+    Returns ``(in_clause, bind_params)``, e.g. ``(":id_0, :id_1", {"id_0": ...})``.
+    """
+    bind_names = [f":id_{i}" for i in range(len(values))]
+    bind_params = {f"id_{i}": v for i, v in enumerate(values)}
+    return ", ".join(bind_names), bind_params
 
 
 class HybridSearch:
@@ -78,30 +88,29 @@ class HybridSearch:
         else:
             narrowed = signals & allowed_signals
             signals = narrowed if narrowed else allowed_signals
-        vector_results, bm25_results, graph_chunk_ids = [], [], []
 
-        if "vector" in signals:
+        # Each signal is fetched independently and isolated by its own try/except:
+        # a failure in one (e.g. a missing Oracle Text index for BM25) never
+        # kills the others.
+        fetchers = {
+            "vector": lambda: search_similar(
+                self.conn, query_embedding, fetch_k, min_similarity, document_ids
+            ),
+            "bm25": lambda: self.bm25.search(query, fetch_k, document_ids) or [],
+            "graph": lambda: self.graph_search.subgraph_for_query(
+                query_embedding, top_k=fetch_k, query=query
+            ).get("chunk_ids", []) or [],
+        }
+        signal_results: Dict[str, Any] = {}
+        for name in signals:
             try:
-                vector_results = search_similar(
-                    self.conn, query_embedding, fetch_k, min_similarity, document_ids
-                )
+                signal_results[name] = fetchers[name]()
             except Exception as e:
-                logger.warning("Vector search failed, skipping signal: %s", e)
+                logger.warning("%s search failed, skipping signal: %s", name, e)
 
-        if "bm25" in signals:
-            try:
-                bm25_results = self.bm25.search(query, fetch_k, document_ids) or []
-            except Exception as e:
-                logger.warning("BM25 search failed, skipping signal: %s", e)
-
-        if "graph" in signals:
-            try:
-                graph_result = self.graph_search.subgraph_for_query(
-                    query_embedding, top_k=fetch_k, query=query
-                )
-                graph_chunk_ids = graph_result.get("chunk_ids", []) or []
-            except Exception as e:
-                logger.warning("Graph search failed, skipping signal: %s", e)
+        vector_results = signal_results.get("vector", [])
+        bm25_results = signal_results.get("bm25", [])
+        graph_chunk_ids = signal_results.get("graph", [])
 
         scores = defaultdict(float)
         chunk_data: Dict[str, Dict[str, Any]] = {}
@@ -176,10 +185,7 @@ class HybridSearch:
         if not chunk_ids or not self.config.get("feedback", {}).get("enabled", True):
             return {}
 
-        bind_names = [f":id_{i}" for i in range(len(chunk_ids))]
-        bind_params = {f"id_{i}": cid for i, cid in enumerate(chunk_ids)}
-        in_clause = ", ".join(bind_names)
-
+        in_clause, bind_params = _in_binds(chunk_ids)
         sql = (
             "SELECT chunk_id, quality_score FROM CHUNK_QUALITY "
             f"WHERE chunk_id IN ({in_clause})"
@@ -202,10 +208,7 @@ class HybridSearch:
         if not chunk_ids:
             return {}
 
-        bind_names = [f":id_{i}" for i in range(len(chunk_ids))]
-        bind_params = {f"id_{i}": cid for i, cid in enumerate(chunk_ids)}
-        in_clause = ", ".join(bind_names)
-
+        in_clause, bind_params = _in_binds(chunk_ids)
         sql = (
             "SELECT chunk_id, document_id, chunk_text, chunk_number "
             f"FROM CHUNKS WHERE chunk_id IN ({in_clause})"
