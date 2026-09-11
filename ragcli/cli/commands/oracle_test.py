@@ -43,10 +43,10 @@ def loader(file_path: str):
     finally:
         if conn: 
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
         del manager
 
 @app.command()
@@ -77,10 +77,10 @@ def splitter(text: str = typer.Option(None, "--text", help="Text to split"),
     finally:
         if conn:
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
         del manager
 
 @app.command()
@@ -96,10 +96,10 @@ def summary(text: str):
     finally:
         if conn:
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
         del manager
 
 @app.command()
@@ -120,10 +120,10 @@ def embedding(text: str):
     finally:
         if conn:
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
         del manager
 
 @app.command()

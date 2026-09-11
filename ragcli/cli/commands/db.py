@@ -247,7 +247,7 @@ def stats():
                     size_info = "-"
 
                 stats_table.add_row(table, f"{count:,}", size_info)
-            except:
+            except Exception:
                 stats_table.add_row(table, "N/A", "Table may not exist")
 
         console.print(stats_table)
