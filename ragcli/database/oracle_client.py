@@ -73,20 +73,6 @@ class OracleClient:
                 print("WARNING: Skipping vector index creation due to unsupported syntax in current Oracle Database version.")
                 print("Vector search will work but may be slower without an index. Please ensure Oracle Database 26ai or later is used.")
                 # Vector index creation requires Oracle Database 26ai+ with vector support enabled.
-                # vi_config = self.config['vector_index']
-                # if vi_config['index_type'] == 'HNSW':
-                #     index_sql = f"""CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
-                # ON CHUNKS(chunk_embedding) ORGANIZATION HNSW
-                # PARAMETERS ('hnsw_graph_m' {vi_config['m']}, 'hnsw_graph_ef_construction' {vi_config['ef_construction']});"""
-                # elif vi_config['index_type'] == 'INMEMORY':
-                #     index_sql = """CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
-                # ON CHUNKS(chunk_embedding);"""
-                # else:
-                #     # Default to INMEMORY if unsupported
-                #     index_sql = """CREATE VECTOR INDEX CHUNKS_EMBEDDING_IDX
-                # ON CHUNKS(chunk_embedding);"""
-                # cursor.execute(index_sql)
-                # created_something = True
 
             if created_something:
                 conn.commit()
