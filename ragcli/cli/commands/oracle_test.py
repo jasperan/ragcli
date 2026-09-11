@@ -6,6 +6,7 @@ from rich.panel import Panel
 from ragcli.config.config_manager import load_config
 from ragcli.database.oracle_client import OracleClient
 from ragcli.core.oracle_integration import OracleIntegrationManager
+import subprocess
 import sys
 import os
 
@@ -138,8 +139,9 @@ def all():
          console.print(f"[red]Test suite not found at {test_suite_path}[/red]")
          raise typer.Exit(1)
          
-    # run with python
-    ret = os.system(f"{sys.executable} {test_suite_path}")
+    # Run with the current interpreter as an argument vector rather than through a shell:
+    # the path is derived from the working directory, which may contain shell metacharacters.
+    ret = subprocess.run([sys.executable, test_suite_path], check=False).returncode
     if ret != 0:
         console.print("[red]Test suite failed.[/red]")
     else:
