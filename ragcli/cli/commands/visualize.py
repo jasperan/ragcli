@@ -90,10 +90,10 @@ def visualize(
     finally:
         if conn:
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
 
 
 @app.command()
@@ -180,10 +180,10 @@ def visual_query(
     finally:
         if conn:
             try: conn.close()
-            except: pass
+            except Exception: pass
         if client:
             try: client.close()
-            except: pass
+            except Exception: pass
 
 
 if __name__ == "__main__":

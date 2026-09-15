@@ -9,6 +9,23 @@ from ragcli.database.oracle_client import OracleClient
 app = typer.Typer()
 console = Console()
 
+def _is_single_select(sql: str) -> bool:
+    """Return True only for one SELECT statement.
+
+    The guard used to be a prefix check, so "SELECT 1 FROM dual; DROP TABLE users" passed it
+    and was handed to the driver as-is. Accept a single trailing semicolon (people paste it)
+    and reject any other statement separator, so the message the CLI prints is true.
+    """
+    if not isinstance(sql, str):
+        return False
+    candidate = sql.strip()
+    if candidate.endswith(";"):
+        candidate = candidate[:-1].strip()
+    if ";" in candidate:  # more than one statement
+        return False
+    return candidate.upper().startswith("SELECT") and len(candidate) > len("SELECT")
+
+
 @app.command()
 def init():
     """Initialize the database schemas and vector index."""
@@ -135,8 +152,8 @@ def query(
     """Execute a custom SQL query and display results."""
     config = load_config()
 
-    # Safety check - only allow SELECT queries
-    if not sql.strip().upper().startswith("SELECT"):
+    # Safety check - only a single SELECT statement, matching what the message promises.
+    if not _is_single_select(sql):
         console.print("[red]Only SELECT queries are allowed for safety[/red]")
         raise typer.Exit(1)
 
@@ -230,7 +247,7 @@ def stats():
                     size_info = "-"
 
                 stats_table.add_row(table, f"{count:,}", size_info)
-            except:
+            except Exception:
                 stats_table.add_row(table, "N/A", "Table may not exist")
 
         console.print(stats_table)
