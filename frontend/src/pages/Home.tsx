@@ -11,12 +11,14 @@ export function Home() {
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
     setResponse(null);
     setChunks([]);
     setQueryEmbedding(undefined);
+    setError(null);
     try {
       const res = await axios.post('/api/query', {
         query,
@@ -27,9 +29,9 @@ export function Home() {
       setResponse(res.data.response);
       setChunks(res.data.chunks || []);
       setQueryEmbedding(res.data.query_embedding);
-    } catch (error) {
-      console.error("Search failed", error);
-      setResponse("Sorry, I encountered an error while searching.");
+    } catch (err) {
+      console.error("Search failed", err);
+      setError("The query did not run. Check that the ragcli API is reachable, then ask again.");
     } finally {
       setIsLoading(false);
     }
@@ -37,43 +39,82 @@ export function Home() {
 
   const handleUpload = async (file: File) => {
     setIsUploading(true);
+    setError(null);
     const formData = new FormData();
     formData.append('file', file);
     try {
       await axios.post('/api/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-    } catch (error) {
-      console.error("Upload failed", error);
-      alert("Upload failed. Please check the backend connection.");
+    } catch (err) {
+      console.error("Upload failed", err);
+      setError("The file was not indexed. Check that the ragcli API is reachable, then try again.");
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <main className="container mx-auto px-4 py-12 flex flex-col items-center">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-medium text-gray-900 mb-2">
-          How can I help you today?
+    <main className="mx-auto grid w-full max-w-shell gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="min-w-0">
+        <h1 className="text-[24px] font-medium leading-8 tracking-tight text-ink">
+          Ask your documents
         </h1>
-        <p className="text-gray-500 text-lg">
-          Upload documents and ask questions powered by RAG
+        <p className="mt-1 text-[13px] text-ink-secondary">
+          Answers cite the chunks and embedding dimensions that produced them.
         </p>
-      </div>
 
-      <SearchBar onSearch={handleSearch} isLoading={isLoading} />
-      <UploadArea onUpload={handleUpload} isUploading={isUploading} />
+        <SearchBar onSearch={handleSearch} isLoading={isLoading} />
 
-      <div className="w-full border-t border-gray-100 my-8"></div>
+        {!response && !isLoading && !error && (
+          <div className="mt-6 rounded-[12px] border border-paper-line bg-paper-card p-5">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[13px] font-medium text-ink">Nothing asked yet</p>
+              <span className="font-mono text-[11px] text-ink-muted">no query</span>
+            </div>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div>
+                <dt className="text-[12px] font-medium text-ink">Answer</dt>
+                <dd className="mt-1 text-[12px] leading-5 text-ink-secondary">
+                  One answer written from the retrieved text, not a list of links.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] font-medium text-ink">Sources</dt>
+                <dd className="mt-1 text-[12px] leading-5 text-ink-secondary">
+                  Every chunk that fed the answer, with its similarity to the question.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] font-medium text-ink">Contribution</dt>
+                <dd className="mt-1 text-[12px] leading-5 text-ink-secondary">
+                  The embedding dimensions behind the match, drawn element by element.
+                </dd>
+              </div>
+            </dl>
+          </div>
+        )}
 
-      {response && (
-        <div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <SearchVisualizer queryEmbedding={queryEmbedding} chunks={chunks} />
+        {error && (
+          <div className="mt-4 rounded-[10px] border border-wax/30 bg-wax-soft px-4 py-3">
+            <p className="text-[13px] leading-5 text-wax-dim">{error}</p>
+          </div>
+        )}
+
+        <div className="mt-6 space-y-6">
+          {response && (
+            <SearchVisualizer queryEmbedding={queryEmbedding} chunks={chunks} />
+          )}
+          <Results response={response} chunks={chunks} />
         </div>
-      )}
+      </section>
 
-      <Results response={response} chunks={chunks} />
+      <aside className="h-fit space-y-3 lg:sticky lg:top-20">
+        <UploadArea onUpload={handleUpload} isUploading={isUploading} />
+        <p className="px-1 font-mono text-[11px] leading-5 text-ink-muted">
+          Files stay on this machine. Ask a question to read the index, or add a document to grow it.
+        </p>
+      </aside>
     </main>
   );
 }

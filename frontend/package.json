@@ -13,7 +13,6 @@
     "@sigma/edge-curve": "^3.1.0",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.23.26",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
     "graphology-layout-noverlap": "^0.4.2",

@@ -1,8 +1,7 @@
-import { useRef, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import type Graph from 'graphology';
 import { useSigma } from '../../hooks/useSigma';
 import { GraphControls } from './GraphControls';
-import { NodeInfoBar } from './NodeInfoBar';
 
 export interface GraphCanvasHandle {
   focusNode: (nodeId: string) => void;
@@ -11,11 +10,11 @@ export interface GraphCanvasHandle {
 interface GraphCanvasProps {
   graph: Graph | null;
   highlightedDocumentId?: string | null;
-  onNodeSelect?: (nodeId: string | null) => void;
+  onNodeSelect?: (nodeId: string | null, nodeData: Record<string, any> | null) => void;
 }
 
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { graph, highlightedDocumentId, onNodeSelect: _onNodeSelect },
+  { graph, highlightedDocumentId, onNodeSelect },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,29 +34,26 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
     ? graph.getNodeAttributes(state.hoveredNode)
     : null;
 
+  useEffect(() => {
+    onNodeSelect?.(state.selectedNode, selectedNodeData ?? null);
+  }, [state.selectedNode, selectedNodeData, onNodeSelect]);
+
   return (
-    <div className="relative w-full h-full">
+    <div className="relative h-full w-full">
       <div
         ref={containerRef}
-        className="w-full h-full"
-        style={{ cursor: 'default', background: '#06060a' }}
+        className="h-full w-full bg-paper"
+        style={{ cursor: 'default' }}
       />
 
       {hoveredNodeData && !state.selectedNode && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-surface border border-border-default rounded-lg px-4 py-2 shadow-lg z-10 max-w-md pointer-events-none">
-          <p className="text-[#e4e4ed] text-sm font-mono truncate">
+        <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-sm rounded-[8px] border border-paper-line bg-paper-card px-3 py-2">
+          <p className="truncate text-[12px] font-medium text-ink">
             {hoveredNodeData.nodeType === 'query' ? 'Query' : hoveredNodeData.documentName}
             {hoveredNodeData.nodeType !== 'query' && ` #${hoveredNodeData.chunkNumber}`}
           </p>
-          <p className="text-[#8888a0] text-xs mt-1 line-clamp-2">{hoveredNodeData.textPreview}</p>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-ink-secondary">{hoveredNodeData.textPreview}</p>
         </div>
-      )}
-
-      {selectedNodeData && (
-        <NodeInfoBar
-          nodeData={selectedNodeData}
-          onFocus={() => state.selectedNode && focusNode(state.selectedNode)}
-        />
       )}
 
       <GraphControls

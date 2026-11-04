@@ -1,9 +1,9 @@
 import React from 'react';
-import { FileText, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { FileText } from 'lucide-react';
 
 interface Chunk {
     chunk_id: string;
+    document_id?: string;
     text: string;
     similarity_score: number;
 }
@@ -17,49 +17,62 @@ export const Results: React.FC<ResultsProps> = ({ response, chunks }) => {
     if (!response && chunks.length === 0) return null;
 
     return (
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full">
             {response && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-8"
-                >
-                    <div className="flex items-center space-x-2 mb-4 text-gray-800">
-                        <Sparkles className="h-5 w-5 text-primary-600" />
-                        <h2 className="text-xl font-medium font-sans">AI Response</h2>
+                <section className="enter">
+                    <div className="mb-2 flex items-baseline justify-between">
+                        <h2 className="text-[13px] font-medium text-ink">Answer</h2>
+                        <span className="font-mono text-[11px] text-ink-muted">
+                            local model
+                        </span>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-gray-800 leading-relaxed text-lg">
+                    <div className="rounded-[12px] border border-paper-line bg-paper-card p-5 text-[15px] leading-7 text-ink">
                         {response}
                     </div>
-                </motion.div>
+                </section>
             )}
 
             {chunks.length > 0 && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold mb-4 ml-1">Sources</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        {chunks.map((chunk, i) => (
-                            <div key={chunk.chunk_id || i} className="bg-gray-50 p-4 rounded-xl border border-gray-200 hover:bg-white hover:shadow-md transition-all duration-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center space-x-2 text-gray-600">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="text-xs font-medium">Context {i + 1}</span>
-                                    </div>
-                                    <span className="text-xs text-primary-600 font-medium bg-primary-50 px-2 py-0.5 rounded-full">
-                                        {Math.round(chunk.similarity_score * 100)}% match
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-600 line-clamp-4 font-mono">
-                                    {chunk.text}
-                                </p>
-                            </div>
-                        ))}
+                <section className="mt-6">
+                    <div className="mb-2 flex items-baseline justify-between">
+                        <h2 className="text-[13px] font-medium text-ink">Sources</h2>
+                        <span className="font-mono text-[11px] tnum text-ink-muted">
+                            {chunks.length} chunks
+                        </span>
                     </div>
-                </motion.div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {chunks.map((chunk, i) => {
+                            const score = Math.max(0, Math.min(1, chunk.similarity_score));
+                            return (
+                                <article
+                                    key={chunk.chunk_id || i}
+                                    className="rounded-[10px] border border-paper-line bg-paper-card p-4 transition-colors duration-150 hover:border-ink-muted"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-muted" />
+                                            <span className="truncate text-[13px] font-medium text-ink">
+                                                {chunk.document_id || chunk.chunk_id}
+                                            </span>
+                                        </div>
+                                        <span className="shrink-0 font-mono text-[11px] tnum text-ink-secondary">
+                                            {score.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 h-[2px] w-full bg-paper-line">
+                                        <div
+                                            className="h-[2px] bg-wax"
+                                            style={{ width: `${score * 100}%` }}
+                                        />
+                                    </div>
+                                    <p className="mt-3 line-clamp-4 text-[13px] leading-6 text-ink-secondary">
+                                        {chunk.text}
+                                    </p>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
             )}
         </div>
     );

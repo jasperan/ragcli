@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from 'react';
-
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 interface ChunkResult {
     chunk_id: string;
@@ -14,116 +13,337 @@ interface SearchVisualizerProps {
     chunks: ChunkResult[];
 }
 
+interface BandRow {
+    kind: 'query' | 'embedding' | 'contribution';
+    label: string;
+    note?: string;
+    y: number;
+    h: number;
+    values: number[];
+    strongest?: number;
+}
+
+interface Geometry {
+    gutter: number;
+    right: number;
+    barWidth: number;
+    plotTop: number;
+    rows: BandRow[];
+    axisY: number;
+}
+
+const PAPER_RGB = [253, 251, 247];
+const INK_RGB = [31, 27, 22];
+const WAX_RGB = [179, 52, 31];
+const WAX = '#B3341F';
+
+const COLORS = {
+    empty: '#F1EDE5',
+    label: '#57504A',
+    muted: '#7A7268',
+    axis: '#D8D1C4',
+};
+
+const GUTTER = 112;
+const PAD_RIGHT = 20;
+const ROW_H = 16;
+const CONTR_H = 8;
+const ROW_GAP = 6;
+const BLOCK_GAP = 16;
+const TOP = 8;
+const AXIS_H = 26;
+const FONT = '11px "IBM Plex Mono", ui-monospace, monospace';
+const TICK_FONT = '10px "IBM Plex Mono", ui-monospace, monospace';
+
+function mix(a: number[], b: number[], t: number): string {
+    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(
+        a[1] + (b[1] - a[1]) * t,
+    )},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+}
+
+function bandColor(value: number, maxAbs: number): string {
+    if (!maxAbs || Math.abs(value) < 1e-9) return COLORS.empty;
+    const t = Math.min(0.94, Math.pow(Math.abs(value) / maxAbs, 0.6));
+    return mix(PAPER_RGB, value > 0 ? WAX_RGB : INK_RGB, t);
+}
+
 export const SearchVisualizer: React.FC<SearchVisualizerProps> = ({ queryEmbedding, chunks }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const geometryRef = useRef<Geometry | null>(null);
+    const [width, setWidth] = useState(0);
+    const [tooltip, setTooltip] = useState<{
+        x: number;
+        y: number;
+        label: string;
+        dim: number;
+        value: number;
+    } | null>(null);
 
-    // Color map function: -1 (blue) to 0 (black) to 1 (red)
-    // Adjust sensitivity based on typical embedding value range (often small like -0.1 to 0.1 for high dims)
-    const getColor = (value: number) => {
-        // Amplify value for visibility
-        const amplified = value * 10;
-        const r = Math.max(0, Math.min(255, amplified * 255));
-        const b = Math.max(0, Math.min(255, -amplified * 255));
-        return `rgb(${r}, 0, ${b})`;
-    };
+    const drawable = Boolean(queryEmbedding && queryEmbedding.length > 0 && chunks.some(c => c.embedding));
 
-    // Draw heatmap
     useEffect(() => {
-        if (!canvasRef.current || !queryEmbedding || chunks.length === 0) return;
+        const wrap = wrapRef.current;
+        if (!wrap) return;
+        const observer = new ResizeObserver(() => setWidth(wrap.clientWidth));
+        observer.observe(wrap);
+        setWidth(wrap.clientWidth);
+        return () => observer.disconnect();
+    }, []);
 
+    const draw = useCallback(() => {
         const canvas = canvasRef.current;
+        const dim = queryEmbedding?.length ?? 0;
+        if (!canvas || !width || !dim || !drawable) return;
+
+        const withEmbedding = chunks.filter(c => c.embedding && c.embedding.length >= dim);
+        const lineCount = withEmbedding.length;
+
+        const height =
+            TOP + ROW_H + BLOCK_GAP + lineCount * (ROW_H + ROW_GAP + CONTR_H + BLOCK_GAP) + AXIS_H;
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.height = `${height}px`;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = '#FDFBF7';
+        ctx.fillRect(0, 0, width, height);
 
-        const width = canvas.width;
+        const plotLeft = GUTTER;
+        const plotRight = width - PAD_RIGHT;
+        const barWidth = (plotRight - plotLeft) / dim;
 
-        // Rows: Query | Gap | Result 1 | Contrib 1 | ...
-        const rowHeight = 20;
-        const gap = 5;
-        const rowsPerResult = 2; // Embedding + Contribution
-
-        const totalHeight = rowHeight + gap + (chunks.length * (rowHeight * rowsPerResult + gap));
-        canvas.height = totalHeight;
-
-        // Clear
-        ctx.fillStyle = '#0f172a'; // Slate-900 bg
-        ctx.fillRect(0, 0, width, totalHeight);
-
-        const dim = queryEmbedding.length;
-        const barWidth = width / dim;
-
-        // Draw Query
-        for (let i = 0; i < dim; i++) {
-            ctx.fillStyle = getColor(queryEmbedding[i]);
-            ctx.fillRect(i * barWidth, 0, barWidth, rowHeight);
+        // One shared scale for every embedding row.
+        let maxAbsEmb = 0;
+        const allVectors = [queryEmbedding!, ...withEmbedding.map(c => c.embedding!)];
+        for (const vector of allVectors) {
+            for (let i = 0; i < dim; i++) {
+                const v = Math.abs(vector[i]);
+                if (v > maxAbsEmb) maxAbsEmb = v;
+            }
         }
 
-        // Draw Label
-        ctx.fillStyle = 'white';
-        ctx.font = '10px monospace';
-        ctx.fillText('Query Vector', 5, rowHeight - 5);
+        const rows: BandRow[] = [];
 
-        let y = rowHeight + gap;
-
-        chunks.forEach((chunk, idx) => {
-            const chunkEmb = chunk.embedding;
-            if (!chunkEmb) return;
-
-            // Draw Chunk Embedding
+        const drawBands = (y: number, h: number, values: number[], maxAbs: number) => {
             for (let i = 0; i < dim; i++) {
-                ctx.fillStyle = getColor(chunkEmb[i]);
-                ctx.fillRect(i * barWidth, y, barWidth, rowHeight);
+                ctx.fillStyle = bandColor(values[i], maxAbs);
+                ctx.fillRect(plotLeft + i * barWidth, y, Math.ceil(barWidth), h);
             }
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillText(`Result #${idx + 1} (${chunk.similarity_score.toFixed(4)})`, 5, y + rowHeight - 5);
+        };
 
-            y += rowHeight;
+        const drawLabel = (text: string, y: number, h: number, color: string, weight = '400') => {
+            ctx.font = `${weight} ${FONT}`;
+            ctx.fillStyle = color;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, plotLeft - 10, y + h / 2);
+            ctx.textAlign = 'left';
+        };
 
-            // Draw Contribution (Element-wise Product)
-            // Dot Product = Sum(q[i] * d[i])
-            // We visualize q[i] * d[i]
+        // Query row
+        let y = TOP;
+        drawBands(y, ROW_H, queryEmbedding!, maxAbsEmb || 1);
+        drawLabel('query', y, ROW_H, COLORS.label, '500');
+        rows.push({ kind: 'query', label: 'query', y, h: ROW_H, values: queryEmbedding! });
+        y += ROW_H + BLOCK_GAP;
+
+        // One block per retrieved chunk: embedding row + contribution strip
+        withEmbedding.forEach((chunk, idx) => {
+            const embeddingTop = y;
+            drawBands(y, ROW_H, chunk.embedding!, maxAbsEmb || 1);
+            drawLabel(`#${idx + 1} ${chunk.similarity_score.toFixed(2)}`, y, ROW_H, COLORS.label);
+            rows.push({
+                kind: 'embedding',
+                label: `#${idx + 1} embedding`,
+                y,
+                h: ROW_H,
+                values: chunk.embedding!,
+            });
+            y += ROW_H + ROW_GAP;
+
+            const contribution = new Array<number>(dim);
+            let maxAbsContrib = 0;
+            let strongest = 0;
             for (let i = 0; i < dim; i++) {
-                const contribution = queryEmbedding[i] * chunkEmb[i];
-                // Contribution is usually positive for matches, negative for mismatches
-                // We use same color scale but maybe brighter?
-                ctx.fillStyle = getColor(contribution * 5); // Amplify more?
-                ctx.fillRect(i * barWidth, y, barWidth, rowHeight / 2); // Thinner line
+                const c = queryEmbedding![i] * chunk.embedding![i];
+                contribution[i] = c;
+                const abs = Math.abs(c);
+                if (abs > maxAbsContrib) {
+                    maxAbsContrib = abs;
+                    strongest = i;
+                }
             }
-            ctx.fillStyle = 'rgba(100, 255, 100, 0.8)';
-            ctx.fillText(`Match Contribution`, 5, y + (rowHeight / 2) - 2);
 
-            y += (rowHeight / 2) + gap;
+            drawBands(y, CONTR_H, contribution, maxAbsContrib || 1);
+            drawLabel(`d${strongest}`, y, CONTR_H, WAX, '500');
+
+            // Signature mark: a 2px wax rule under the band that carried the hit.
+            ctx.fillStyle = WAX;
+            ctx.fillRect(
+                plotLeft + strongest * barWidth,
+                y + CONTR_H + 2,
+                Math.max(2, barWidth),
+                2,
+            );
+            // Measurement tick through both rows, on the same dimension.
+            ctx.fillRect(
+                plotLeft + strongest * barWidth,
+                embeddingTop,
+                1.2,
+                y + CONTR_H + 3 - embeddingTop,
+            );
+
+            rows.push({
+                kind: 'contribution',
+                label: `#${idx + 1} contribution`,
+                note: `d${strongest}`,
+                y,
+                h: CONTR_H,
+                values: contribution,
+                strongest,
+            });
+
+            y += CONTR_H + BLOCK_GAP;
         });
 
-    }, [queryEmbedding, chunks]);
+        // Dimension axis
+        ctx.strokeStyle = COLORS.axis;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(plotLeft, y - 10);
+        ctx.lineTo(plotRight, y - 10);
+        ctx.stroke();
 
-    if (!queryEmbedding || chunks.length === 0) return null;
+        ctx.font = TICK_FONT;
+        ctx.fillStyle = COLORS.muted;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const step = dim > 1024 ? 128 : 64;
+        for (let i = 0; i <= dim; i += 64) {
+            const x = plotLeft + i * barWidth;
+            const tall = i % step === 0;
+            ctx.beginPath();
+            ctx.moveTo(x, y - 10);
+            ctx.lineTo(x, y - (tall ? 4 : 7));
+            ctx.stroke();
+            if (tall && i < dim) {
+                ctx.fillText(String(i), x, y - 2);
+            }
+        }
+        ctx.textAlign = 'left';
+
+        geometryRef.current = {
+            gutter: plotLeft,
+            right: plotRight,
+            barWidth,
+            plotTop: TOP,
+            rows,
+            axisY: y,
+        };
+    }, [queryEmbedding, chunks, width, drawable]);
+
+    useEffect(() => {
+        draw();
+    }, [draw]);
+
+    const handleMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current;
+        const geometry = geometryRef.current;
+        if (!canvas || !geometry) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (x < geometry.gutter || x > geometry.right) {
+            setTooltip(null);
+            return;
+        }
+        const dim = Math.floor((x - geometry.gutter) / geometry.barWidth);
+        const row = geometry.rows.find(r => y >= r.y && y <= r.y + r.h);
+        if (!row || dim < 0 || dim >= row.values.length) {
+            setTooltip(null);
+            return;
+        }
+        setTooltip({
+            x: Math.min(x + 12, geometry.right - 8),
+            y: Math.max(row.y - 8, 0),
+            label: row.label,
+            dim,
+            value: row.values[dim],
+        });
+    };
+
+    if (!queryEmbedding || chunks.length === 0 || !drawable) return null;
+
+    const dim = queryEmbedding.length;
+    const scored = chunks.filter(c => c.embedding);
+    const best = scored.reduce(
+        (acc, c) => (c.similarity_score > acc.similarity_score ? c : acc),
+        scored[0],
+    );
+
+    let bestDim = 0;
+    if (best?.embedding) {
+        let maxAbs = 0;
+        for (let i = 0; i < dim; i++) {
+            const abs = Math.abs((queryEmbedding[i] ?? 0) * (best.embedding[i] ?? 0));
+            if (abs > maxAbs) {
+                maxAbs = abs;
+                bestDim = i;
+            }
+        }
+    }
 
     return (
-        <div className="w-full max-w-4xl mx-auto mb-8 bg-slate-900 rounded-xl overflow-hidden shadow-2xl border border-slate-700">
-            <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-                <h3 className="text-white font-medium flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    Vector Space Visualization
-                </h3>
-                <span className="text-xs text-slate-400 font-mono">
-                    {queryEmbedding.length} Dimensions (R: Pos, B: Neg)
+        <section className="enter rounded-[12px] border border-paper-line bg-paper-card">
+            <header className="flex items-baseline justify-between px-5 pt-4">
+                <h2 className="text-[13px] font-medium text-ink">Embedding contribution</h2>
+                <span className="font-mono text-[11px] tnum text-ink-muted">
+                    {dim} dims · {scored.length} chunks
                 </span>
-            </div>
-            <div className="p-4 overflow-x-auto" ref={containerRef}>
+            </header>
+            <p className="px-5 pt-1 text-[12px] text-ink-secondary">
+                Query vector against each retrieved chunk, element by element. The wax tick marks the
+                dimension that carried that chunk's similarity; for the top chunk it is{' '}
+                <span className="font-mono tnum">d{bestDim}</span>.
+            </p>
+
+            <div ref={wrapRef} className="relative mt-3 px-5">
                 <canvas
                     ref={canvasRef}
-                    width={containerRef.current?.clientWidth || 800}
-                    height={300}
-                    className="w-full h-auto"
+                    onMouseMove={handleMove}
+                    onMouseLeave={() => setTooltip(null)}
+                    className="block w-full"
                 />
+                {tooltip && (
+                    <div
+                        className="pointer-events-none absolute z-10 rounded-[6px] border border-paper-line bg-paper-card px-2 py-1 font-mono text-[11px] tnum text-ink"
+                        style={{ left: tooltip.x, top: tooltip.y }}
+                    >
+                        <span className="text-ink-muted">{tooltip.label}</span> · d{tooltip.dim} ·{' '}
+                        {tooltip.value.toFixed(3)}
+                    </div>
+                )}
             </div>
-            <div className="px-4 py-2 bg-slate-800 text-xs text-slate-400 flex justify-between font-mono">
-                <div>Top: Query Vector</div>
-                <div>Middle: Result Vector</div>
-                <div>Bottom: Contribution (Q × D)</div>
-            </div>
-        </div>
+
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-paper-line px-5 py-3">
+                <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-ink-muted">−</span>
+                    <span className="h-2 w-24 rounded-[2px] border border-paper-line bg-[linear-gradient(90deg,#8E8378_0%,#F1EDE5_50%,#B3341F_100%)]" />
+                    <span className="font-mono text-[11px] text-ink-muted">+</span>
+                    <span className="ml-1 font-mono text-[11px] text-ink-muted">
+                        q[i] × d[i], each row scaled to its own max
+                    </span>
+                </div>
+                <span className="font-mono text-[11px] tnum text-ink-secondary">
+                    top score {Math.max(...chunks.map(c => c.similarity_score)).toFixed(2)}
+                </span>
+            </footer>
+        </section>
     );
 };

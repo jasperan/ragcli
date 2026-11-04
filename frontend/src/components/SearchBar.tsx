@@ -17,24 +17,29 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => 
     };
 
     return (
-        <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto mt-8 mb-8">
-            <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
-                </div>
+        <form onSubmit={handleSubmit} className="mt-5 w-full">
+            <div className="flex items-center gap-2 rounded-[10px] border border-paper-line bg-paper-card px-3 transition-colors duration-150 focus-within:border-ink-muted">
+                <Search size={16} strokeWidth={1.5} className="shrink-0 text-ink-muted" />
+                <label htmlFor="query" className="sr-only">Question</label>
                 <input
+                    id="query"
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ask anything..."
-                    className="block w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-full text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-transparent shadow-google hover:shadow-google-hover transition-all duration-200 ease-in-out"
+                    placeholder="Search documents"
+                    className="h-11 w-full bg-transparent text-[15px] text-ink placeholder:text-ink-muted focus:outline-none"
                     disabled={isLoading}
                 />
                 {isLoading && (
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                        <div className="animate-spin h-5 w-5 border-2 border-primary-500 rounded-full border-t-transparent"></div>
-                    </div>
+                    <div className="mr-1 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
                 )}
+                <button
+                    type="submit"
+                    disabled={isLoading || !query.trim()}
+                    className="h-9 shrink-0 rounded-[8px] bg-wax px-4 text-[13px] font-medium text-white transition-colors duration-150 hover:bg-wax-dim disabled:opacity-40"
+                >
+                    Ask
+                </button>
             </div>
         </form>
     );

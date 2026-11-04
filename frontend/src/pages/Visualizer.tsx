@@ -10,11 +10,16 @@ import type { GraphCanvasHandle } from '../components/graph/GraphCanvas';
 import { FilterPanel } from '../components/graph/FilterPanel';
 import { GraphSearch } from '../components/graph/GraphSearch';
 import { DocumentSelector } from '../components/graph/DocumentSelector';
+import { NodeInfoBar } from '../components/graph/NodeInfoBar';
 
 export function Visualizer() {
   const { data, loading, error, filters, setFilters, fetchGraph, fetchQueryGraph } = useGraphData();
   const [graph, setGraph] = useState<Graph | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<{
+    id: string;
+    data: Record<string, any>;
+  } | null>(null);
   const graphCanvasRef = useRef<GraphCanvasHandle>(null);
 
   useEffect(() => {
@@ -45,26 +50,23 @@ export function Visualizer() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-[#06060a] overflow-hidden">
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col bg-paper">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 bg-surface border-b border-border-default z-20">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-[#8888a0] hover:text-[#e4e4ed] transition-colors"
-          >
-            <ArrowLeft size={16} />
-            <span className="text-sm font-display">Back</span>
-          </Link>
-          <div className="h-4 w-px bg-border-default" />
-          <div className="flex items-center gap-2">
-            <Network size={16} className="text-accent" />
-            <span className="text-[#e4e4ed] text-sm font-display font-medium">
-              Vector Embedding Visualizer
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-xs font-mono text-[#5a5a70]">
+      <div className="flex h-12 shrink-0 items-center gap-4 border-b border-paper-line px-6">
+        <Link
+          to="/"
+          className="flex items-center gap-2 text-[13px] text-ink-secondary transition-colors duration-150 hover:text-ink"
+        >
+          <ArrowLeft size={16} strokeWidth={1.5} className="text-ink-muted" />
+          Back
+        </Link>
+        <div className="h-4 w-px bg-paper-line" />
+        <h1 className="flex items-center gap-2 text-[13px] font-medium text-ink">
+          <Network size={16} strokeWidth={1.5} className="text-ink-muted" />
+          Embedding graph
+        </h1>
+
+        <div className="ml-auto flex items-center gap-4 font-mono text-[11px] tnum text-ink-muted">
           {data && (
             <>
               <span>{data.metadata.returned_chunks} nodes</span>
@@ -74,59 +76,81 @@ export function Visualizer() {
             </>
           )}
         </div>
+        <GraphSearch onSearch={handleSearch} loading={loading} />
       </div>
 
-      {/* Graph area */}
-      <div className="flex-1 relative">
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center z-30">
-            <div className="bg-surface border border-red-900/50 rounded-lg px-6 py-4 max-w-md">
-              <p className="text-red-400 text-sm font-mono">{error}</p>
-              <button
-                onClick={() => fetchGraph()}
-                className="mt-3 text-xs text-accent hover:text-[#e4e4ed] font-mono transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        )}
-
-        {loading && !graph && (
-          <div className="absolute inset-0 flex items-center justify-center z-30">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-[#8888a0] text-sm font-mono">Loading embedding graph...</span>
-            </div>
-          </div>
-        )}
-
-        {graph && (
-          <GraphCanvas
-            ref={graphCanvasRef}
-            graph={graph}
-            highlightedDocumentId={selectedDocumentId}
+      {/* Rails: documents | graph | filters + inspector */}
+      <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_320px]">
+        <aside className="min-h-0 overflow-y-auto border-r border-paper-line px-4 py-4">
+          <DocumentSelector
+            data={data}
+            selectedDocumentId={selectedDocumentId}
+            onSelectDocument={setSelectedDocumentId}
+            onFocusNode={handleFocusNode}
           />
-        )}
+        </aside>
 
-        {/* Document selector - left sidebar below filters */}
-        <DocumentSelector
-          data={data}
-          selectedDocumentId={selectedDocumentId}
-          onSelectDocument={setSelectedDocumentId}
-          onFocusNode={handleFocusNode}
-        />
+        <div className="relative min-h-0">
+          {error && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center">
+              <div className="max-w-md rounded-[10px] border border-wax/30 bg-wax-soft px-5 py-4">
+                <p className="font-mono text-[11px] leading-5 text-wax-dim">{error}</p>
+                <button
+                  onClick={() => fetchGraph()}
+                  className="mt-2 text-[12px] font-medium text-wax transition-colors duration-150 hover:text-wax-dim"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          )}
 
-        <FilterPanel filters={filters} onApply={handleFilterApply} loading={loading} />
-        <GraphSearch onSearch={handleSearch} loading={loading} />
+          {loading && !graph && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center">
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
+                <span className="font-mono text-[11px] text-ink-muted">Loading embedding graph</span>
+              </div>
+            </div>
+          )}
 
-        {!loading && !error && data && data.nodes.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-30">
-            <Network size={48} className="text-[#2a2a3a] mb-4" />
-            <p className="text-[#8888a0] text-sm font-display">No embeddings found</p>
-            <p className="text-[#5a5a70] text-xs font-mono mt-1">Upload documents first, then come back here</p>
+          {graph && (
+            <GraphCanvas
+              ref={graphCanvasRef}
+              graph={graph}
+              highlightedDocumentId={selectedDocumentId}
+              onNodeSelect={(id, nodeData) =>
+                setSelectedNode(id && nodeData ? { id, data: nodeData } : null)
+              }
+            />
+          )}
+
+          {!loading && !error && data && data.nodes.length === 0 && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center text-center">
+              <Network size={18} strokeWidth={1.5} className="mb-2 text-ink-muted" />
+              <p className="text-[13px] text-ink">No embeddings found</p>
+              <p className="mt-1 font-mono text-[11px] text-ink-muted">
+                Add a document on the home page, then come back.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <aside className="min-h-0 space-y-5 overflow-y-auto border-l border-paper-line px-4 py-4">
+          <FilterPanel filters={filters} onApply={handleFilterApply} loading={loading} />
+          <div className="border-t border-paper-line pt-4">
+            {selectedNode ? (
+              <NodeInfoBar key={selectedNode.id} nodeData={selectedNode.data} onFocus={() => handleFocusNode(selectedNode.id)} />
+            ) : (
+              <div>
+                <h2 className="text-[13px] font-medium text-ink">Selection</h2>
+                <p className="mt-2 text-[12px] leading-5 text-ink-secondary">
+                  Select a node to read its chunk, token count and best similarity.
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </aside>
       </div>
     </div>
   );

@@ -9,25 +9,21 @@ interface GraphControlsProps {
 }
 
 export function GraphControls({ onZoomIn, onZoomOut, onReset, onToggleLayout, layoutRunning }: GraphControlsProps) {
-  const btnClass = "w-9 h-9 flex items-center justify-center rounded-lg bg-elevated hover:bg-[#1c1c28] border border-border-subtle text-[#8888a0] hover:text-[#e4e4ed] transition-colors";
+  const btnClass = "flex h-8 w-8 items-center justify-center rounded-[8px] border border-paper-line bg-paper-card text-ink-secondary transition-colors duration-150 hover:border-ink-muted hover:text-ink";
 
   return (
-    <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-10">
-      <button onClick={onZoomIn} className={btnClass} title="Zoom In">
-        <ZoomIn size={16} />
+    <div className="absolute bottom-5 right-5 z-10 flex flex-col gap-1.5">
+      <button onClick={onZoomIn} className={btnClass} title="Zoom in">
+        <ZoomIn size={16} strokeWidth={1.5} />
       </button>
-      <button onClick={onZoomOut} className={btnClass} title="Zoom Out">
-        <ZoomOut size={16} />
+      <button onClick={onZoomOut} className={btnClass} title="Zoom out">
+        <ZoomOut size={16} strokeWidth={1.5} />
       </button>
-      <button onClick={onReset} className={btnClass} title="Fit to Screen">
-        <Maximize2 size={16} />
+      <button onClick={onReset} className={btnClass} title="Fit to screen">
+        <Maximize2 size={16} strokeWidth={1.5} />
       </button>
-      <button
-        onClick={onToggleLayout}
-        className={`${btnClass} ${layoutRunning ? 'animate-breathe border-accent' : ''}`}
-        title={layoutRunning ? 'Pause Layout' : 'Resume Layout'}
-      >
-        {layoutRunning ? <Pause size={16} /> : <Play size={16} />}
+      <button onClick={onToggleLayout} className={btnClass} title={layoutRunning ? 'Pause layout' : 'Resume layout'}>
+        {layoutRunning ? <Pause size={16} strokeWidth={1.5} /> : <Play size={16} strokeWidth={1.5} />}
       </button>
     </div>
   );

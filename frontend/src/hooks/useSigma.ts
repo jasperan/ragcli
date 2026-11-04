@@ -59,11 +59,11 @@ export function useSigma(
     const sigma = new Sigma(graph, containerRef.current, {
       allowInvalidContainer: true,
       renderEdgeLabels: false,
-      labelRenderedSizeThreshold: 8,
-      labelDensity: 0.15,
-      labelGridCellSize: 70,
-      labelFont: '"JetBrains Mono", monospace',
-      labelColor: { color: '#e4e4ed' },
+      labelRenderedSizeThreshold: 5,
+      labelDensity: 0.35,
+      labelGridCellSize: 90,
+      labelFont: '"IBM Plex Mono", monospace',
+      labelColor: { color: '#1F1B16' },
       labelSize: 11,
       stagePadding: 50,
       // Performance: hide edges/labels during camera movement
@@ -86,9 +86,9 @@ export function useSigma(
           if (nodeDocId === highlightedDoc) {
             res.highlighted = true;
             res.size = (data.size || 6) * 1.5;
-            res.color = '#7c3aed'; // accent purple
+            res.color = '#B3341F'; // wax pencil: the selected document
           } else {
-            res.color = dimColor(data.color || '#475569', 0.15);
+            res.color = dimColor(data.color || '#CFC7B9', 0.15);
             res.size = (data.size || 6) * 0.5;
             res.label = '';
           }
@@ -107,7 +107,7 @@ export function useSigma(
           } else if (graph.hasEdge(node, selected) || graph.hasEdge(selected, node)) {
             res.size = (data.size || 6) * 1.3;
           } else {
-            res.color = dimColor(data.color || '#475569', 0.2);
+            res.color = dimColor(data.color || '#CFC7B9', 0.2);
             res.size = (data.size || 6) * 0.5;
             res.label = '';
           }
@@ -118,7 +118,7 @@ export function useSigma(
           } else if (graph.hasEdge(node, hovered) || graph.hasEdge(hovered, node)) {
             res.size = (data.size || 6) * 1.2;
           } else {
-            res.color = dimColor(data.color || '#475569', 0.3);
+            res.color = dimColor(data.color || '#CFC7B9', 0.3);
             res.size = (data.size || 6) * 0.7;
             res.label = '';
           }
@@ -138,7 +138,7 @@ export function useSigma(
           if (srcDoc !== highlightedDoc && tgtDoc !== highlightedDoc) {
             res.hidden = true;
           } else {
-            res.color = '#7c3aed';
+            res.color = '#B3341F';
             res.size = (data.size || 1) * 1.5;
           }
           return res;

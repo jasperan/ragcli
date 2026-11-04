@@ -1,7 +1,7 @@
 import Graph from 'graphology';
 import type { GraphData, GraphNode } from '../hooks/useGraphData';
 
-const BG = { r: 0x06, g: 0x06, b: 0x0a };
+const BG = { r: 0xf7, g: 0xf4, b: 0xee };
 
 export function dimColor(hex: string, amount: number): string {
   let r: number, g: number, b: number;
@@ -24,14 +24,14 @@ export function dimColor(hex: string, amount: number): string {
 }
 
 const COLORS = {
-  query: '#06b6d4',
-  highSim: '#10b981',
-  midSim: '#f59e0b',
-  lowSim: '#475569',
+  query: '#B3341F',
+  highSim: '#1F1B16',
+  midSim: '#6B625A',
+  lowSim: '#CFC7B9',
   edge: {
-    high: '#7c3aed',
-    mid: '#4c1d95',
-    low: '#2a2a3a',
+    high: '#57504A',
+    mid: '#8A8177',
+    low: '#DED7CA',
   },
 };
 

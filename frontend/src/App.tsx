@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
+import { Network } from 'lucide-react';
 import { Home } from './pages/Home';
 import { Visualizer } from './pages/Visualizer';
 
@@ -8,25 +9,24 @@ axios.defaults.baseURL = import.meta.env.VITE_API_URL || `${window.location.prot
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-white">
-        <header className="p-6 flex items-center justify-between border-b border-gray-100">
-          <div className="flex items-center space-x-2">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                R
-              </div>
-              <span className="text-xl font-medium text-gray-700 tracking-tight">ragcli</span>
+      <div className="min-h-full bg-paper text-ink">
+        <header className="h-14 border-b border-paper-line">
+          <div className="mx-auto flex h-full max-w-shell items-center justify-between px-6">
+            <Link to="/" className="flex items-baseline gap-3">
+              <span className="text-[15px] font-medium tracking-tight text-ink">ragcli</span>
+              <span className="hidden text-[11px] text-ink-muted sm:inline">
+                local retrieval over your own documents
+              </span>
             </Link>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link
-              to="/visualize"
-              className="text-sm text-gray-600 hover:text-primary-600 transition-colors font-medium"
-            >
-              Vector Graph
-            </Link>
-            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-500">System Ready</span>
+            <nav className="flex items-center gap-4">
+              <Link
+                to="/visualize"
+                className="flex items-center gap-2 text-[13px] text-ink-secondary transition-colors duration-150 hover:text-ink"
+              >
+                <Network size={16} strokeWidth={1.5} className="text-ink-muted" />
+                Embedding graph
+              </Link>
+            </nav>
           </div>
         </header>
 
