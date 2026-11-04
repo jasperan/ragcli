@@ -60,79 +60,76 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
     setExpandedDoc(expandedDoc === docId ? null : docId);
   };
 
-  if (!data || documents.length === 0) return null;
-
   return (
-    <div className="absolute top-4 left-4 z-10 w-64 max-h-[calc(100vh-120px)] flex flex-col">
-      <div className="bg-surface border border-border-default rounded-lg shadow-lg overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border-subtle">
-          <span className="flex items-center gap-2 text-sm font-medium font-display text-[#e4e4ed]">
-            <FileText size={14} className="text-accent" />
-            Documents
-            <span className="text-[#5a5a70] text-xs ml-auto">{documents.length}</span>
-          </span>
-        </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-2 pb-2">
+        <FileText size={16} strokeWidth={1.5} className="text-ink-muted" />
+        <h2 className="text-[13px] font-medium text-ink">Documents</h2>
+        <span className="ml-auto font-mono text-[11px] tnum text-ink-muted">{documents.length}</span>
+      </div>
 
-        <div className="overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+      {documents.length === 0 ? (
+        <p className="text-[12px] leading-5 text-ink-secondary">No documents in this graph yet.</p>
+      ) : (
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto">
           {documents.map((doc) => {
             const isSelected = selectedDocumentId === doc.documentId;
             const isExpanded = expandedDoc === doc.documentId;
 
             return (
               <div key={doc.documentId}>
-                <div className={`w-full px-3 py-2.5 flex items-center gap-2 transition-all duration-150 group ${
-                    isSelected
-                      ? 'bg-accent/15 border-l-2 border-accent'
-                      : 'hover:bg-[#1c1c28] border-l-2 border-transparent'
+                <div
+                  className={`flex items-center gap-2 rounded-[6px] px-1 py-1.5 transition-colors duration-150 ${
+                    isSelected ? 'bg-wax-soft' : 'hover:bg-paper-sunken'
                   }`}
                 >
                   <button
                     onClick={(e) => handleExpandToggle(e, doc.documentId)}
-                    className="text-[#5a5a70] hover:text-[#8888a0] flex-shrink-0"
+                    className="shrink-0 text-ink-muted transition-colors duration-150 hover:text-ink"
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                   >
-                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {isExpanded ? <ChevronDown size={16} strokeWidth={1.5} /> : <ChevronRight size={16} strokeWidth={1.5} />}
                   </button>
 
                   <button
                     onClick={() => handleDocClick(doc.documentId)}
-                    className="flex-1 min-w-0 text-left"
+                    className="min-w-0 flex-1 text-left"
                   >
-                    <p className={`text-xs font-mono truncate ${
-                      isSelected ? 'text-accent' : 'text-[#e4e4ed]'
-                    }`}>
+                    <p className={`truncate text-[12px] ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
                       {doc.documentName}
                     </p>
-                    <p className="text-[10px] text-[#5a5a70] mt-0.5">
+                    <p className="mt-0.5 font-mono text-[11px] tnum text-ink-muted">
                       {doc.chunkCount} chunk{doc.chunkCount !== 1 ? 's' : ''}
                     </p>
                   </button>
 
-                  <span className={`flex-shrink-0 transition-opacity ${
-                    isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}>
+                  <span
+                    className={`shrink-0 transition-opacity duration-150 ${
+                      isSelected ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
                     {isSelected
-                      ? <Eye size={12} className="text-accent" />
-                      : <EyeOff size={12} className="text-[#5a5a70]" />
+                      ? <Eye size={16} strokeWidth={1.5} className="text-wax" />
+                      : <EyeOff size={16} strokeWidth={1.5} className="text-ink-muted" />
                     }
                   </span>
                 </div>
 
                 {/* Expanded chunk list */}
                 {isExpanded && (
-                  <div className="bg-[#0a0a10]">
+                  <div className="ml-4 border-l border-paper-line pl-2">
                     {chunks.map((chunk) => (
                       <button
                         key={chunk.id}
                         onClick={() => onFocusNode(chunk.id)}
-                        className="w-full px-4 pl-8 py-1.5 flex items-center gap-2 text-left hover:bg-[#16161f] transition-colors"
+                        className="flex w-full items-center gap-2 rounded-[6px] px-1 py-1 text-left transition-colors duration-150 hover:bg-paper-sunken"
                       >
-                        <Hash size={10} className="text-[#5a5a70] flex-shrink-0" />
-                        <span className="text-[10px] font-mono text-[#8888a0] flex-shrink-0">
+                        <Hash size={16} strokeWidth={1.5} className="shrink-0 text-ink-muted" />
+                        <span className="shrink-0 font-mono text-[11px] tnum text-ink-muted">
                           {chunk.chunk_number}
                         </span>
-                        <span className="text-[10px] text-[#5a5a70] truncate">
-                          {chunk.text_preview.slice(0, 50)}...
+                        <span className="truncate text-[11px] text-ink-secondary">
+                          {chunk.text_preview.slice(0, 44)}…
                         </span>
                       </button>
                     ))}
@@ -142,7 +139,7 @@ export function DocumentSelector({ data, selectedDocumentId, onSelectDocument, o
             );
           })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
