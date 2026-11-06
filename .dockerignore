@@ -27,3 +27,6 @@ docs/images/
 docs/slides/
 docs/visuals/
 *.ipynb
+.env
+.env.*
+config.yaml
