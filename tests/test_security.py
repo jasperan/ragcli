@@ -252,3 +252,28 @@ class TestOracleStartupScript:
 
         assert result.returncode == 1
         assert "ORACLE_APP_PASSWORD must not contain quotes" in result.stderr
+
+
+class TestOriginCheck:
+    """State-changing requests from a non-allow-listed browser Origin are refused."""
+
+    def test_foreign_origin_post_rejected(self, client):
+        r = client.post("/api/documents/upload", files={"file": ("a.txt", b"x")},
+                        headers={"Origin": "http://evil.example"})
+        assert r.status_code == 403
+
+    def test_foreign_origin_delete_rejected(self, client):
+        r = client.delete("/api/documents/abc", headers={"Origin": "http://evil.example"})
+        assert r.status_code == 403
+
+    def test_allowed_origin_not_blocked(self, client):
+        r = client.delete("/api/documents/abc", headers={"Origin": "http://localhost:5173"})
+        assert r.status_code != 403
+
+    def test_no_origin_not_blocked(self, client):
+        r = client.delete("/api/documents/abc")
+        assert r.status_code != 403
+
+    def test_foreign_origin_get_not_blocked(self, client):
+        r = client.get("/api/health", headers={"Origin": "http://evil.example"})
+        assert r.status_code != 403

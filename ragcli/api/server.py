@@ -145,6 +145,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+class OriginCheckMiddleware(BaseHTTPMiddleware):
+    """Reject state-changing requests carrying an Origin that is neither allow-listed nor same-origin.
+
+    CORS only stops browsers from *reading* responses and from sending preflighted calls; a
+    cross-origin multipart/form POST is a "simple request" and would still be executed.
+    Requests without an Origin header (CLI, TUI, curl, server-to-server) are unaffected.
+    """
+
+    def __init__(self, app, allowed_origins):
+        super().__init__(app)
+        self.allowed = {o.rstrip("/") for o in allowed_origins}
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin")
+        if origin and request.method not in _SAFE_METHODS and "*" not in self.allowed:
+            origin = origin.rstrip("/")
+            same_origin = origin == f"{request.url.scheme}://{request.headers.get('host', '')}"
+            if origin not in self.allowed and not same_origin:
+                return JSONResponse(status_code=403, content={"detail": "Origin not allowed."})
+        return await call_next(request)
+
+
 @asynccontextmanager
 async def lifespan(app):
     """Startup/shutdown lifecycle for the FastAPI app."""
@@ -173,6 +198,7 @@ cors_origins = config.get('api', {}).get('cors_origins')
 if cors_origins is None:
     cors_origins = DEFAULT_CONFIG['api']['cors_origins']
 allow_credentials = "*" not in cors_origins
+app.add_middleware(OriginCheckMiddleware, allowed_origins=cors_origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
